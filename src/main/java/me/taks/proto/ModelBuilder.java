@@ -1,9 +1,7 @@
 package me.taks.proto;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ANTLRFileStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -18,51 +16,17 @@ public class ModelBuilder extends ProtobufBaseListener {
 	private Message message;
 	private Message.Enum currentEnum;
 	
-	private Message getGlobal(List<String> names) {
-		Message out = pkg.messages.get(names.remove(0));
-		while (out != null && names.size()>0) {
-			out = out.messages.get(names.remove(0));
-		}
-		return out;
-	}
-	
 	protected Item getItem(String scope, String type, String name, String id) {
 		Item i = new Item();
+		i.scope = Scope.valueOf(scope.toUpperCase());
+		i.name = name;
+		i.number = Integer.parseInt(id);
+
 		try {
 			i.type = Item.Type.valueOf(type.toUpperCase());
 		} catch (Exception e) {
-			//TODO set message
-			Message base;
-			String unqualifiedType;
-			//is it a child?
-			if (type.indexOf(".")<0) {
-				base = message;
-				unqualifiedType = type;
-			} else {
-				System.out.println("in " + type);
-				List<String> parents = new ArrayList<>();
-				Arrays.stream(type.split("\\.")).forEach(parents::add);
-				unqualifiedType = parents.remove(parents.size()-1);
-				base = getGlobal(parents);
-			}
-			
-			if (base==null) {
-				System.out.println("message or Enum "+type+" was baseless in "+message.name);
-				//TODO: handle error
-			} else if (base.messages.containsKey(unqualifiedType)) {
-				i.type = Item.Type.MESSAGE;
-				i.messageType = base.messages.get(unqualifiedType);
-			} else if (base.enums.containsKey(unqualifiedType)) {
-				i.type = Item.Type.ENUM;
-				i.messageType = base.messages.get(unqualifiedType);
-			} else {
-				System.out.println("message or Enum "+type+" didn't match in "+message.name);
-				//TODO: handle error
-			}
-
-			i.scope = Scope.valueOf(scope.toUpperCase());
-			i.name = name;
-			i.number = Integer.parseInt(id);
+			i.type = Item.Type.COMPLEX;
+			i.complexType = type;
 		}
 		return i;
 	}
@@ -82,10 +46,9 @@ public class ModelBuilder extends ProtobufBaseListener {
 	
 	@Override
 	public void enterEnum_def(Enum_defContext ctx) {
-		Message.Enum e = new Message.Enum();
-		e.name = ctx.getChild(1).getText();
+		Message.Enum e = new Message.Enum(pkg, message, ctx.getChild(1).getText());
 		currentEnum = e;
-		message.enums.put(e.name, e);
+		message.types.put(e.name, e);
 	}
 
 
@@ -98,10 +61,9 @@ public class ModelBuilder extends ProtobufBaseListener {
 
 	@Override
 	public void enterMessage_name(Message_nameContext ctx) {
-		Message m = new Message(pkg, message);
-		m.name = ctx.getText();
-		if (message==null) pkg.messages.put(m.name, m);
-		else message.messages.put(m.name, m);
+		Message m = new Message(pkg, message, ctx.getText());
+		if (message==null) pkg.types.put(m.name, m);
+		else message.types.put(m.name, m);
 		message = m;
 	}
 
@@ -112,7 +74,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 	}
 	
 	public static void main(String[] args) throws IOException {
-		ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(args[1]));
+		ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(args[0]));
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		ProtobufParser parser = new ProtobufParser(tokens);
 		ProtoContext tree = parser.proto(); // parse
@@ -120,6 +82,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 		new ParseTreeWalker().walk(tsb, tree);
 		System.out.println(
 			new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines(""))
+			.collect(Collectors.joining("\n"))
 		);
 //		Files.write(
 //			("\"use strict\"\n"+tsb.current.firstElement().toString()).getBytes(), 

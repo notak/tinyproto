@@ -7,14 +7,11 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import me.taks.proto.Message.Item.Scope;
-import me.taks.proto.Message.Item.Type;
 
-public class Message {
+public class Message extends Type {
 	
-	public Message(Package pkg, Message parent) {
-		super();
-		this.pkg = pkg;
-		this.parent = parent;
+	public Message(Package pkg, Message parent, String name) {
+		super(pkg, parent, name);
 	}
 
 	public static class Item {
@@ -22,8 +19,7 @@ public class Message {
 			INT32, SINT32, UINT32, INT64, SINT64, UINT64,
 			BOOL, 
 			STRING,
-			MESSAGE,
-			ENUM,
+			COMPLEX,
 		}
 		
 		enum Scope {
@@ -34,30 +30,28 @@ public class Message {
 		public Item.Scope scope;
 		public Item.Type type;
 		public int number;
-		public Message messageType;
-		public Enum enumType;
+		public String complexType;
 	}
-
-	public static class Enum {
-		public Message parent;
-		public String name;
+	
+	public static class Enum extends Type {
+		public Enum(Package pkg, Message parent, String name) {
+			super(pkg, parent, name);
+			// TODO Auto-generated constructor stub
+		}
 		public Map<String, Integer> items = new HashMap<>();
 	}
 	
-	public Package pkg;
-	public Message parent;
-	
-	public String name;
 	public List<Item> items = new ArrayList<>();
 
-	public Map<String, Message> messages = new HashMap<>();
-	public Map<String, Enum> enums = new HashMap<>();
+	public Stream<Item> complex() {
+		return items.stream().filter(i->i.type==Item.Type.COMPLEX);
+	}
 	
-	public Stream<Item> children() {
-		return items.stream().filter(i->i.scope==Scope.REPEATED);
+	public Stream<Type> messages() {
+		return complex().map(i->getType(i.complexType)).filter(i->i instanceof Message);
 	}
 	
 	public Stream<Item> repeated() {
-		return items.stream().filter(i->i.type==Type.MESSAGE);
+		return items.stream().filter(i->i.scope==Scope.REPEATED);
 	}
 }

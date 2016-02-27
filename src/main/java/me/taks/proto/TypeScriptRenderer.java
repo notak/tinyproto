@@ -58,8 +58,7 @@ public class TypeScriptRenderer {
 			return "number";
 		case BOOL: return "boolean";
 		case STRING: return "string";
-		case MESSAGE: return item.messageType.name;
-		case ENUM: return item.enumType.name;
+		case COMPLEX: return item.complexType;
 		default: return null;
 		}
 	}
@@ -67,7 +66,7 @@ public class TypeScriptRenderer {
 	public Stream<Output> renderClass(Message m) {
 		Output out = new Output();
 		out.head = "export class " + m.name;
-		m.enums.values().stream().map(e->
+		m.childEnums().map(e->
 			"static " + e.name + " = {" +
 			e.items.entrySet().stream().map(i->
 				i.getKey() + ": " + i.getValue() + ","
@@ -81,7 +80,7 @@ public class TypeScriptRenderer {
 		).forEach(out.lines::add);
 
 		return Stream.concat(
-			m.messages.values().stream().flatMap(this::renderClass),
+			m.childMessages().flatMap(this::renderClass),
 			Stream.of(out)
 		);
 	}
@@ -107,7 +106,7 @@ public class TypeScriptRenderer {
 		Output out = new Output();
 		out.head = "export class " + m.name + "Parser";
 
-		out.lines(m.children().map(i->i.messageType.name).distinct()
+		out.lines(m.messages().map(i->i.name).distinct()
 			.map(i->String.format(SUBPARSER_DECL, lcFirst(i), i))
 		);
 
@@ -116,7 +115,7 @@ public class TypeScriptRenderer {
 			.head("constructor(root: Parser<any>)")
 			.line("super(root)")
 			.lines(
-				m.children().map(i->i.messageType.name + "Parser").distinct()
+				m.messages().map(i->i.name + "Parser").distinct()
 				.map(i->String.format(SUBPARSER_INST, lcFirst(i), i))
 			)
 		);
@@ -146,7 +145,7 @@ public class TypeScriptRenderer {
 		).forEach(out.lines::add);
 
 		return Stream.concat(
-			m.messages.values().stream().flatMap(this::renderParser),
+			m.childMessages().flatMap(this::renderParser),
 			Stream.of(out)
 		);
 }
@@ -157,7 +156,7 @@ public class TypeScriptRenderer {
 	
 	public Stream<Output> render(Package p) {
 		return Stream.of(new Output().head("module "+p.name).children(
-			p.messages.values().stream().map(this::render).flatMap(x->x)
+			p.childMessages().map(this::render).flatMap(x->x)
 		));
 	}
 

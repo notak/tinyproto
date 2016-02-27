@@ -1,9 +1,7 @@
 package me.taks.proto;
 
-import java.util.HashMap;
-import java.util.Map;
-
-public class Package {
-	public String name;
-	public Map<String, Message> messages = new HashMap<>();
+public class Package extends Type {
+	public Package() {
+		super(null, null, null);
+	}
 }
