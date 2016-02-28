@@ -3,7 +3,6 @@ package me.taks.proto;
 import java.util.stream.Collectors;
 
 import junit.framework.TestCase;
-import me.taks.proto.TypeScriptRenderer.Output;
 
 public class TypeScriptRendererTest extends TestCase {
 

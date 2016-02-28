@@ -1,65 +1,21 @@
 package me.taks.proto;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import me.taks.proto.Message.Item;
+import me.taks.proto.Message.Item.LineType;
+import me.taks.proto.Message.Item.LineType.BuiltIn;
 import me.taks.proto.Message.Item.Scope;
 
 public class TypeScriptRenderer {
-	public static class Output {
-		public String head;
-		public String lineEnd = ";";
-		public String startBrace = "{";
-		public String endBrace = "}";
-		public List<Output> children = new ArrayList<>();
-		public List<String> lines = new ArrayList<>();
-		
-		public Output head(String head) {
-			this.head = head;
-			return this;
-		}
-		
-		public Output line(String line) {
-			this.lines.add(line);
-			return this;
-		}
-		
-		public Output lines(Stream<String> lines) {
-			lines.forEach(this.lines::add);
-			return this;
-		}
-		
-		public Output child(Output child) {
-			this.children.add(child);
-			return this;
-		}
-		
-		public Output children(Stream<Output> children) {
-			children.forEach(this.children::add);
-			return this;
-		}
-		
-		public Stream<String> lines(String indent) {
-			return Stream.of(
-				Stream.of(head + " " + startBrace), 
-				children.stream().flatMap(c->c.lines(indent)).map(s->indent + s),
-				lines.stream().map(l->indent + l + lineEnd),	
-				Stream.of(endBrace)
-			).flatMap(x->x);
-		}
-	}
-
-	private String tsType(Item item) {
-		switch (item.type) {
-		case INT32: case SINT32: case UINT32: case INT64: case SINT64: case UINT64:
-			return "number";
+	private String tsType(LineType type) {
+		switch (type.builtIn) {
 		case BOOL: return "boolean";
 		case STRING: return "string";
-		case COMPLEX: return item.complexType;
-		default: return null;
+		case COMPLEX: return type.complex;
+		default: return "number";
 		}
 	}
 	
@@ -76,7 +32,7 @@ public class TypeScriptRenderer {
 
 		m.items.stream().map(i->
 			i.name + " : " + 
-			this.tsType(i) + (i.scope==Scope.REPEATED ? "[]" : "")
+			this.tsType(i.decodedType()) + (i.scope==Scope.REPEATED ? "[]" : "")
 		).forEach(out.lines::add);
 
 		return Stream.concat(
@@ -86,12 +42,22 @@ public class TypeScriptRenderer {
 	}
 	
 	private String decoder(Item i) {
-		switch (i.type) {
-		case STRING:
-			return "this.getString(lenOrVal)";
-			//todo: message types and booleans
-		default: return "lenOrVal";
+		Type t;
+		String out = 
+			//TODO: should be able to handle fixed32 and 64...
+			i.scope==Scope.PACKED ? "this.getPacked(lenOrVal, this.getVarInt.bind(this))" :
+			i.type.builtIn==BuiltIn.STRING ? "this.getString(lenOrVal)" :
+			i.type.builtIn==BuiltIn.COMPLEX 
+			&& (t = i.message.getType(i.type.complex)) instanceof Message ?
+				"this."+lcFirst(t.name)+"Parser.decode("
+				+ "this.buf, this.start, this.start + lenOrVal)" :
+			"lenOrVal";
+		
+		if (i.encoding!=null) {
+			out = i.encoding + ".decode(" + out + ")";
 		}
+		if (i.divisor>0) out += "*"+i.divisor;
+		return out;
 	}
 
 	public String lcFirst(String in) {
@@ -100,7 +66,7 @@ public class TypeScriptRenderer {
 	
 	private static final String SUBPARSER_DECL = "private %sParser: %sParser";
 	private static final String SUBPARSER_INST = "this.%sParser=this.getParser(%sParser)";
-	private static final String MAP_FIELD = "case %d: this._out.%s = %s; break;";
+	private static final String MAP_FIELD = "case %d: this._out.%s%s; break";
 	
 	public Stream<Output> renderParser(Message m) {
 		Output out = new Output();
@@ -115,16 +81,20 @@ public class TypeScriptRenderer {
 			.head("constructor(root: Parser<any>)")
 			.line("super(root)")
 			.lines(
-				m.messages().map(i->i.name + "Parser").distinct()
+				m.messages().map(i->i.name).distinct()
 				.map(i->String.format(SUBPARSER_INST, lcFirst(i), i))
 			)
 		);
-
+		
 		out.child(
 			new Output()
 			.head("startDecode()")
-			.line("this._out = new " + m.name)
-			.lines(m.repeated().map(i->"this._out."+i.name+" = []"))
+			.line("var o=this._out=new " + m.name)
+			.lines(m.repeated().map(i->"o." + i.name + "=[]"))
+			.lines(m.packed().map(i->"o." + i.name + "=[]"))
+			.lines(m.defaults().map(i->"o." + i.name + "=" + 
+				(i.type.builtIn==BuiltIn.STRING ? "\"" + i.defaultVal + "\"" : i.defaultVal)
+			))
 		);
 
 		out.child(
@@ -134,16 +104,12 @@ public class TypeScriptRenderer {
 				m.items.stream()
 				.peek(i->System.out.println(i))
 				.map(i->String.format(MAP_FIELD, i.number, i.name,
-					i.scope==Scope.REPEATED ? ".push(" + decoder(i) + ")" : decoder(i)
+					i.scope==Scope.REPEATED ? ".push(" + decoder(i) + ")" :
+					" = " + decoder(i)
 				))
 			))
 		);
 		
-		m.items.stream().map(i->
-			i.name + " : " + 
-			this.tsType(i) + (i.scope==Scope.REPEATED ? "[]" : "")
-		).forEach(out.lines::add);
-
 		return Stream.concat(
 			m.childMessages().flatMap(this::renderParser),
 			Stream.of(out)
@@ -155,9 +121,13 @@ public class TypeScriptRenderer {
 	}
 	
 	public Stream<Output> render(Package p) {
-		return Stream.of(new Output().head("module "+p.name).children(
-			p.childMessages().map(this::render).flatMap(x->x)
-		));
+		ArrayList<String> functions = new ArrayList<>();
+		
+		return Stream.of(
+			new Output().head("module "+p.name).line("\"use strict\"")
+			.lines(functions.stream())
+			.children(p.childMessages().map(this::render).flatMap(x->x))
+		);
 	}
 
 }

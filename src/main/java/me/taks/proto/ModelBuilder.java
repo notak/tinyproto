@@ -8,35 +8,66 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import me.taks.proto.Message.Item;
+import me.taks.proto.Message.Item.LineType;
 import me.taks.proto.Message.Item.Scope;
+import me.taks.proto.Message.Item.LineType.BuiltIn;
 import me.taks.proto.ProtobufParser.*;
 
 public class ModelBuilder extends ProtobufBaseListener {
-	private Package pkg = new Package();
+	private Package pkg;
 	private Message message;
+	private Item item;
 	private Message.Enum currentEnum;
+
+	protected LineType getType(String type) {
+		LineType out = new LineType();
+		try {
+			out.builtIn = BuiltIn.valueOf(type.toUpperCase());
+		} catch (Exception e) {
+			out.builtIn = BuiltIn.COMPLEX;
+			out.complex = type;
+		}
+		return out;
+		
+	}
 	
 	protected Item getItem(String scope, String type, String name, String id) {
 		Item i = new Item();
+		i.message = message;
 		i.scope = Scope.valueOf(scope.toUpperCase());
 		i.name = name;
 		i.number = Integer.parseInt(id);
-
-		try {
-			i.type = Item.Type.valueOf(type.toUpperCase());
-		} catch (Exception e) {
-			i.type = Item.Type.COMPLEX;
-			i.complexType = type;
-		}
+		i.type = getType(type);
 		return i;
 	}
 	
 	@Override
 	public void enterMessage_item_def(Message_item_defContext ctx) {
-		message.items.add(getItem(
+		System.out.println(ctx.getChild(5));
+		message.items.add(item = getItem(
 			ctx.getChild(0).getText(), ctx.getChild(1).getText(), 
 			ctx.getChild(2).getText(), ctx.getChild(4).getText()
 		));
+	}
+	
+	@Override
+	public void enterOption_field_def(Option_field_defContext ctx) {
+		for (int i=1; i<ctx.getChildCount()-1; i+=2) {
+			Option_field_itemContext rule = 
+					(Option_field_itemContext)ctx.getChild(i).getPayload();
+			String name = rule.getChild(0).getText();
+			String value = rule.getChild(2).getText();
+			if (value.startsWith("\"")) value = value.substring(1, value.length()-1);
+
+			switch (name.toUpperCase()) {
+			case "PACKED": item.scope = Scope.PACKED; break;
+			case "ENCODING": item.encoding = value; break;
+			case "DECODEDTYPE": item.decodedType = getType(value); break;
+			case "DEFAULT": item.defaultVal = value; break;
+			case "DIVISOR": item.divisor = Integer.parseInt(value); break;
+			default: 
+			}
+		}
 	}
 	
 	@Override
@@ -69,8 +100,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 
 	@Override
 	public void enterPackage_name(Package_nameContext ctx) {
-		pkg = new Package();
-		pkg.name = ctx.getText();
+		pkg = new Package(ctx.getText());
 	}
 	
 	public static void main(String[] args) throws IOException {
@@ -81,7 +111,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 		ModelBuilder tsb = new ModelBuilder();
 		new ParseTreeWalker().walk(tsb, tree);
 		System.out.println(
-			new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines(""))
+			new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines("    "))
 			.collect(Collectors.joining("\n"))
 		);
 //		Files.write(

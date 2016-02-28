@@ -1,7 +1,7 @@
 package me.taks.proto;
 
 public class Package extends Type {
-	public Package() {
-		super(null, null, null);
+	public Package(String name) {
+		super(null, null, name);
 	}
 }
