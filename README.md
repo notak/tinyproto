@@ -5,6 +5,9 @@ If you have any issues with the output of this tool then switch to using a more 
 https://github.com/dcodeIO/ProtoBuf.js/
 
 ##Usage
+```
+java -jar target/proto-0.0.1-SNAPSHOT.jar <PROTO FILE PATH/FILENAME>
+```
 
 ##Advantages
 They will however offer some advantages over a more complete approach:
@@ -18,4 +21,4 @@ support for example
 
 ##Build
 * Obtain the source
-* bulid using ```mvn package```
+* bulid using ```mvn package```	
