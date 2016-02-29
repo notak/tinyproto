@@ -56,7 +56,8 @@ public class TypeScriptRenderer {
 		if (i.encoding!=null) {
 			out = i.encoding + ".decode(" + out + ")";
 		}
-		if (i.divisor>0) out += "*"+i.divisor;
+		if (i.subtract!=0) out += "+"+i.subtract;
+		if (i.divisor!=0) out = "("+out+")*"+i.divisor;
 		return out;
 	}
 

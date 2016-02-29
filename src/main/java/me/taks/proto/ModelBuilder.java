@@ -1,11 +1,14 @@
 package me.taks.proto;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ANTLRFileStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
+import org.apache.commons.lang3.StringEscapeUtils;
 
 import me.taks.proto.Message.Item;
 import me.taks.proto.Message.Item.LineType;
@@ -51,21 +54,48 @@ public class ModelBuilder extends ProtobufBaseListener {
 	}
 	
 	@Override
+	public void enterOption_line_def(Option_line_defContext ctx) {
+		String name = ctx.getChild(1).getText();
+		String value = ctx.getChild(3).getText();
+		//TODO: bit of a hack
+		if (value.startsWith("\"")) value = 
+				StringEscapeUtils.unescapeJava(value.substring(1, value.length()-1));
+
+		if (currentEnum!=null) { //enum options
+			switch (name.toUpperCase()) {
+			case "ALLOW_ALIAS": currentEnum.allowAlias =true; break;
+			default: currentEnum.unknownOpts.put(name, value);
+			}
+		} else if (message!=null) { //message options
+			message.unknownOpts.put(name, value);
+		} else { //package options
+			pkg.unknownOpts.put(name, value);
+		}
+	}
+	
+	@Override
 	public void enterOption_field_def(Option_field_defContext ctx) {
 		for (int i=1; i<ctx.getChildCount()-1; i+=2) {
 			Option_field_itemContext rule = 
 					(Option_field_itemContext)ctx.getChild(i).getPayload();
 			String name = rule.getChild(0).getText();
 			String value = rule.getChild(2).getText();
-			if (value.startsWith("\"")) value = value.substring(1, value.length()-1);
+			//TODO: bit of a hack
+			if (value.startsWith("\"")) value = 
+					StringEscapeUtils.unescapeJava(value.substring(1, value.length()-1));
 
 			switch (name.toUpperCase()) {
 			case "PACKED": item.scope = Scope.PACKED; break;
 			case "ENCODING": item.encoding = value; break;
 			case "DECODEDTYPE": item.decodedType = getType(value); break;
 			case "DEFAULT": item.defaultVal = value; break;
-			case "DIVISOR": item.divisor = Integer.parseInt(value); break;
+			case "DIVIDE": item.divisor = Integer.parseInt(value); break;
+			case "SUBTRACT": item.subtract = Integer.parseInt(value); break;
 			default: 
+				System.out.printf("didn't understand parameter %s parsing %s.%s", 
+					name, message.name, item.name
+				);
+				item.unknownOpts.put(name, value);
 			}
 		}
 	}
@@ -80,6 +110,11 @@ public class ModelBuilder extends ProtobufBaseListener {
 		Message.Enum e = new Message.Enum(pkg, message, ctx.getChild(1).getText());
 		currentEnum = e;
 		message.types.put(e.name, e);
+	}
+
+	@Override
+	public void exitEnum_def(Enum_defContext ctx) {
+		currentEnum = null;
 	}
 
 
@@ -110,9 +145,11 @@ public class ModelBuilder extends ProtobufBaseListener {
 		ProtoContext tree = parser.proto(); // parse
 		ModelBuilder tsb = new ModelBuilder();
 		new ParseTreeWalker().walk(tsb, tree);
-		System.out.println(
-			new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines("    "))
-			.collect(Collectors.joining("\n"))
+		Files.write(Paths.get("/home/chris/workspace/proto/tmp.proto"),
+//				new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines("    "))
+//				.collect(Collectors.joining("\n"))
+				new ProtocRenderer().render(tsb.pkg).flatMap(o->o.lines("\t"))
+				.collect(Collectors.joining("\n")).getBytes()
 		);
 //		Files.write(
 //			("\"use strict\"\n"+tsb.current.firstElement().toString()).getBytes(), 

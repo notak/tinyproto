@@ -9,6 +9,7 @@ public class Output {
 	public String lineEnd = ";";
 	public String startBrace = "{";
 	public String endBrace = "}";
+	public String emptyBody = "{}";
 	public List<Output> children = new ArrayList<>();
 	public List<String> lines = new ArrayList<>();
 	
@@ -17,8 +18,13 @@ public class Output {
 		return this;
 	}
 	
+	public Output emptyBody(String empty) {
+		this.emptyBody = empty;
+		return this;
+	}
+	
 	public Output line(String line) {
-		this.lines.add(line);
+		if (line!=null) this.lines.add(line);
 		return this;
 	}
 	
@@ -38,11 +44,14 @@ public class Output {
 	}
 	
 	public Stream<String> lines(String indent) {
-		return Stream.of(
+		if (children.isEmpty() && lines.isEmpty()) {
+			return Stream.of(head + emptyBody);
+		} else return Stream.of(
 			Stream.of(head + " " + startBrace), 
 			children.stream().flatMap(c->c.lines(indent)).map(s->indent + s),
 			lines.stream().map(l->indent + l + lineEnd),	
-			Stream.of(endBrace)
+			Stream.of(endBrace),
+			Stream.of("")
 		).flatMap(x->x);
 	}
 }

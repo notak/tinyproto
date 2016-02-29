@@ -1,7 +1,7 @@
 package me.taks.proto;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -40,6 +40,8 @@ public class Message extends Type {
 		public String defaultVal;
 		public String encoding;
 		public int divisor;
+		public int subtract;
+		public Map<String, String> unknownOpts = new LinkedHashMap<>();
 
 		public LineType decodedType() {
 			return decodedType==null ? type : decodedType;
@@ -51,7 +53,9 @@ public class Message extends Type {
 			super(pkg, parent, name);
 			// TODO Auto-generated constructor stub
 		}
-		public Map<String, Integer> items = new HashMap<>();
+		public Map<String, Integer> items = new LinkedHashMap<>();
+		public Map<String, String> unknownOpts = new LinkedHashMap<>();
+		public boolean allowAlias;
 	}
 	
 	public List<Item> items = new ArrayList<>();

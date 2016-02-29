@@ -2,7 +2,7 @@ package me.taks.proto;
 
 import me.taks.proto.Message.Enum;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -11,7 +11,8 @@ public class Type {
 	public Message parent;
 	
 	public String name;
-	public Map<String, Type> types = new HashMap<>();
+	public Map<String, Type> types = new LinkedHashMap<>();
+	public Map<String, String> unknownOpts = new LinkedHashMap<>();
 
 	public Type(Package pkg, Message parent, String name) {
 		super();
