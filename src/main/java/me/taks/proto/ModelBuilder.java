@@ -3,6 +3,8 @@ package me.taks.proto;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ANTLRFileStream;
@@ -46,7 +48,6 @@ public class ModelBuilder extends ProtobufBaseListener {
 	
 	@Override
 	public void enterMessage_item_def(Message_item_defContext ctx) {
-		System.out.println(ctx.getChild(5));
 		message.items.add(item = getItem(
 			ctx.getChild(0).getText(), ctx.getChild(1).getText(), 
 			ctx.getChild(2).getText(), ctx.getChild(4).getText()
@@ -139,21 +140,34 @@ public class ModelBuilder extends ProtobufBaseListener {
 	}
 	
 	public static void main(String[] args) throws IOException {
-		ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(args[0]));
-		CommonTokenStream tokens = new CommonTokenStream(lexer);
-		ProtobufParser parser = new ProtobufParser(tokens);
-		ProtoContext tree = parser.proto(); // parse
-		ModelBuilder tsb = new ModelBuilder();
-		new ParseTreeWalker().walk(tsb, tree);
-		Files.write(Paths.get("/home/chris/workspace/proto/tmp.proto"),
-//				new TypeScriptRenderer().render(tsb.pkg).flatMap(o->o.lines("    "))
-//				.collect(Collectors.joining("\n"))
-				new ProtocRenderer().render(tsb.pkg).flatMap(o->o.lines("\t"))
-				.collect(Collectors.joining("\n")).getBytes()
-		);
-//		Files.write(
-//			("\"use strict\"\n"+tsb.current.firstElement().toString()).getBytes(), 
-//			new File("../nr/static/nr.proto.ts")
-//		);
+		HashMap<String, Renderer> renderers = new HashMap<>();
+		String protoFile = null;
+		
+		for (String arg: args) {
+			if (arg.contains("=")) {
+				String[] kv = arg.split("=");
+				String[] parts = kv[0].split("-");
+				renderers.computeIfAbsent(parts[1], 
+					i->i.equals("ts") ? new TypeScriptRenderer() : new ProtocRenderer()
+				).set(parts[2], kv[1]);
+			} else protoFile = arg;
+		}
+		
+		if (protoFile==null || renderers.isEmpty()) {
+			System.out.println("Usage: java -jar proto.jar OPTIONS <INPUT PROTO FILE>.\n"
+					+ "OPTIONS:\n"
+					+ "\t-ts-out=<OUTPUT FILE.js> \n"
+					+ "\t-proto-out=<OUTPUT FILE.proto>");
+		} else {
+	
+			ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(protoFile));
+			CommonTokenStream tokens = new CommonTokenStream(lexer);
+			ProtobufParser parser = new ProtobufParser(tokens);
+			ProtoContext tree = parser.proto(); // parse
+			ModelBuilder tsb = new ModelBuilder();
+			new ParseTreeWalker().walk(tsb, tree);
+			
+			renderers.values().forEach(r->r.write(tsb.pkg));
+		}
 	}
 }

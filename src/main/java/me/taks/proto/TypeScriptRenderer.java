@@ -1,6 +1,8 @@
 package me.taks.proto;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -9,7 +11,16 @@ import me.taks.proto.Message.Item.LineType;
 import me.taks.proto.Message.Item.LineType.BuiltIn;
 import me.taks.proto.Message.Item.Scope;
 
-public class TypeScriptRenderer {
+public class TypeScriptRenderer extends Renderer {
+	private String imports = "../libs/proto.ts";
+	public TypeScriptRenderer set(String key, String value) {
+		switch (key) {
+		case "imports": imports = value; break;
+		default: super.set(key, value);
+		}
+		return this;
+	}
+	
 	private String tsType(LineType type) {
 		switch (type.builtIn) {
 		case BOOL: return "boolean";
@@ -103,7 +114,6 @@ public class TypeScriptRenderer {
 			.head("process(field: number, lenOrVal: number)")
 			.child(new Output().head("switch (field)").lines(
 				m.items.stream()
-				.peek(i->System.out.println(i))
 				.map(i->String.format(MAP_FIELD, i.number, i.name,
 					i.scope==Scope.REPEATED ? ".push(" + decoder(i) + ")" :
 					" = " + decoder(i)
@@ -124,10 +134,14 @@ public class TypeScriptRenderer {
 	public Stream<Output> render(Package p) {
 		ArrayList<String> functions = new ArrayList<>();
 		
-		return Stream.of(
-			new Output().head("module "+p.name).line("\"use strict\"")
-			.lines(functions.stream())
-			.children(p.childMessages().map(this::render).flatMap(x->x))
+		return Stream.concat(
+			Arrays.stream(imports.split(""+File.pathSeparatorChar))
+			.map(s->new Output().head("/// <reference path=\"" + s + "\" />")),
+			Stream.of(
+				new Output().head("module "+p.name).line("\"use strict\"")
+				.lines(functions.stream())
+				.children(p.childMessages().map(this::render).flatMap(x->x))
+			)
 		);
 	}
 
