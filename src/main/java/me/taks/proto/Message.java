@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import me.taks.proto.Message.Item.Scope;
-import me.taks.proto.Message.Item.LineType.BuiltIn;
+import me.taks.proto.Message.Field.Scope;
+import me.taks.proto.Message.Field.FieldType.BuiltIn;
 
 public class Message extends Type {
 	
@@ -15,8 +15,8 @@ public class Message extends Type {
 		super(pkg, parent, name);
 	}
 
-	public static class Item {
-		public static class LineType {
+	public static class Field {
+		public static class FieldType {
 			enum BuiltIn {
 				INT32, SINT32, UINT32, INT64, SINT64, UINT64,
 				BOOL, 
@@ -25,6 +25,11 @@ public class Message extends Type {
 			}
 			BuiltIn builtIn;
 			String complex;
+			Field field;
+			Type complex() {
+				return this.field.message.getType(complex);
+			}
+			public FieldType(Field field) { this.field = field; }
 		}
 		
 		enum Scope {
@@ -33,9 +38,9 @@ public class Message extends Type {
 
 		public Message message;
 		public String name;
-		public Item.Scope scope;
-		public LineType type;
-		public LineType decodedType;
+		public Field.Scope scope;
+		public FieldType type;
+		public FieldType decodedType;
 		public int number;
 		public String defaultVal;
 		public String encoding;
@@ -43,7 +48,7 @@ public class Message extends Type {
 		public int subtract;
 		public Map<String, String> unknownOpts = new LinkedHashMap<>();
 
-		public LineType decodedType() {
+		public FieldType decodedType() {
 			return decodedType==null ? type : decodedType;
 		}
 	}
@@ -58,9 +63,9 @@ public class Message extends Type {
 		public boolean allowAlias;
 	}
 	
-	public List<Item> items = new ArrayList<>();
+	public List<Field> items = new ArrayList<>();
 	
-	public Stream<Item> complex() {
+	public Stream<Field> complex() {
 		return items.stream().filter(i->i.type.builtIn==BuiltIn.COMPLEX);
 	}
 	
@@ -68,15 +73,15 @@ public class Message extends Type {
 		return complex().map(i->getType(i.type.complex)).filter(i->i instanceof Message);
 	}
 	
-	public Stream<Item> packed() {
+	public Stream<Field> packed() {
 		return items.stream().filter(i->i.scope==Scope.PACKED);
 	}
 	
-	public Stream<Item> repeated() {
+	public Stream<Field> repeated() {
 		return items.stream().filter(i->i.scope==Scope.REPEATED);
 	}
 
-	public Stream<Item> defaults() {
+	public Stream<Field> defaults() {
 		return items.stream().filter(i->i.defaultVal!=null);
 	}
 }

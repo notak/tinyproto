@@ -5,13 +5,22 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class Output {
-	public String head;
+	public String head = "";
 	public String lineEnd = ";";
 	public String startBrace = "{";
 	public String endBrace = "}";
 	public String emptyBody = "{}";
+	public String forceIndent = null;
 	public List<Output> children = new ArrayList<>();
 	public List<String> lines = new ArrayList<>();
+	
+	public Output noGrouping() {
+		forceIndent = "";
+		startBrace = "";
+		endBrace = "";
+		emptyBody = "";
+		return this;
+	}
 	
 	public Output head(String head) {
 		this.head = head;
@@ -44,12 +53,14 @@ public class Output {
 	}
 	
 	public Stream<String> lines(String indent) {
+		String rindent = forceIndent!=null ? forceIndent : indent;
+		
 		if (children.isEmpty() && lines.isEmpty()) {
 			return Stream.of(head + emptyBody);
 		} else return Stream.of(
 			Stream.of(head + " " + startBrace), 
-			children.stream().flatMap(c->c.lines(indent)).map(s->indent + s),
-			lines.stream().map(l->indent + l + lineEnd),	
+			children.stream().flatMap(c->c.lines(indent)).map(s->rindent + s),
+			lines.stream().map(l->rindent + l + lineEnd),	
 			Stream.of(endBrace),
 			Stream.of("")
 		).flatMap(x->x);

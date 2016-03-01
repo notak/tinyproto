@@ -2,7 +2,7 @@ package me.taks.proto;
 
 import java.util.stream.Stream;
 
-import me.taks.proto.Message.Item.Scope;
+import me.taks.proto.Message.Field.Scope;
 
 public class ProtocRenderer extends Renderer {
 	public Stream<Output> render(Message m) {

@@ -1,31 +1,27 @@
 package me.taks.proto;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ANTLRFileStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.apache.commons.lang3.StringEscapeUtils;
 
-import me.taks.proto.Message.Item;
-import me.taks.proto.Message.Item.LineType;
-import me.taks.proto.Message.Item.Scope;
-import me.taks.proto.Message.Item.LineType.BuiltIn;
+import me.taks.proto.Message.Field;
+import me.taks.proto.Message.Field.FieldType;
+import me.taks.proto.Message.Field.Scope;
+import me.taks.proto.Message.Field.FieldType.BuiltIn;
 import me.taks.proto.ProtobufParser.*;
 
 public class ModelBuilder extends ProtobufBaseListener {
 	private Package pkg;
 	private Message message;
-	private Item item;
+	private Field item;
 	private Message.Enum currentEnum;
 
-	protected LineType getType(String type) {
-		LineType out = new LineType();
+	protected FieldType getType(Field field, String type) {
+		FieldType out = new FieldType(field);
 		try {
 			out.builtIn = BuiltIn.valueOf(type.toUpperCase());
 		} catch (Exception e) {
@@ -36,13 +32,13 @@ public class ModelBuilder extends ProtobufBaseListener {
 		
 	}
 	
-	protected Item getItem(String scope, String type, String name, String id) {
-		Item i = new Item();
+	protected Field getItem(String scope, String type, String name, String id) {
+		Field i = new Field();
 		i.message = message;
 		i.scope = Scope.valueOf(scope.toUpperCase());
 		i.name = name;
 		i.number = Integer.parseInt(id);
-		i.type = getType(type);
+		i.type = getType(i, type);
 		return i;
 	}
 	
@@ -88,7 +84,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 			switch (name.toUpperCase()) {
 			case "PACKED": item.scope = Scope.PACKED; break;
 			case "ENCODING": item.encoding = value; break;
-			case "DECODEDTYPE": item.decodedType = getType(value); break;
+			case "DECODEDTYPE": item.decodedType = getType(item, value); break;
 			case "DEFAULT": item.defaultVal = value; break;
 			case "DIVIDE": item.divisor = Integer.parseInt(value); break;
 			case "SUBTRACT": item.subtract = Integer.parseInt(value); break;
