@@ -94,7 +94,7 @@ public class TypeScriptRenderer extends Renderer {
 
 		out.child(
 			new Output()
-			.head("constructor(root: Parser<any>)")
+			.head("constructor(root?: Parser<any>)")
 			.line("super(root)")
 			.lines(
 				m.messages().map(i->i.name).distinct()
