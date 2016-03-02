@@ -58,7 +58,9 @@ public class TypeScriptRenderer extends Renderer {
 		Type t;
 		String out = 
 			//TODO: should be able to handle fixed32 and 64...
-			i.scope==Scope.PACKED ? "this.getPacked(lenOrVal, this.getVarInt.bind(this))" :
+			i.scope==Scope.PACKED ? "this.getPacked(lenOrVal, i=>this.getVarInt("+
+				(i.type.builtIn==BuiltIn.SINT32 || i.type.builtIn == BuiltIn.SINT64 ? "true" : "")
+			+"))" :
 			i.type.builtIn==BuiltIn.STRING ? "this.getString(lenOrVal)" :
 			i.type.builtIn==BuiltIn.BOOL ? "!!lenOrVal" :
 			i.type.builtIn==BuiltIn.COMPLEX 
