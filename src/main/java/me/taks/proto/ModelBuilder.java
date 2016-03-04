@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.HashMap;
 
 import org.antlr.v4.runtime.ANTLRFileStream;
+import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -135,6 +136,22 @@ public class ModelBuilder extends ProtobufBaseListener {
 		pkg = new Package(ctx.getText());
 	}
 	
+	public ModelBuilder buildFile(String file) throws IOException {
+		ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(file));
+		new ParseTreeWalker()
+			.walk(this, new ProtobufParser(new CommonTokenStream(lexer)).proto());
+		return this;
+	}
+	
+	public ModelBuilder build(String proto) throws IOException {
+		ProtobufLexer lexer = new ProtobufLexer(new ANTLRInputStream(proto));
+		new ParseTreeWalker()
+			.walk(this, new ProtobufParser(new CommonTokenStream(lexer)).proto());
+		return this;
+	}
+	
+	public Package pkg() { return this.pkg; }
+	
 	public static void main(String[] args) throws IOException {
 		HashMap<String, Renderer> renderers = new HashMap<>();
 		String protoFile = null;
@@ -156,14 +173,8 @@ public class ModelBuilder extends ProtobufBaseListener {
 					+ "\t-proto-out=<OUTPUT FILE.proto>");
 		} else {
 	
-			ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(protoFile));
-			CommonTokenStream tokens = new CommonTokenStream(lexer);
-			ProtobufParser parser = new ProtobufParser(tokens);
-			ProtoContext tree = parser.proto(); // parse
-			ModelBuilder tsb = new ModelBuilder();
-			new ParseTreeWalker().walk(tsb, tree);
-			
-			renderers.values().forEach(r->r.write(tsb.pkg));
+			ModelBuilder mb = new ModelBuilder().buildFile(protoFile);
+			renderers.values().forEach(r->r.write(mb.pkg));
 		}
 	}
 }
