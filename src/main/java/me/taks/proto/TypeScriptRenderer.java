@@ -1,6 +1,10 @@
 package me.taks.proto;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -143,7 +147,7 @@ public class TypeScriptRenderer extends Renderer {
 				new Output().noGrouping().lines(
 					Arrays.stream(imports.split(""+File.pathSeparatorChar))
 					.map(s->"/// <reference path=\"" + s + "\" />")
-				)
+				).line("/// <reference path=\"proto.ts\" />")
 			).child(new Output().head("module "+p.name)
 				.child(new Output().noGrouping()
 					.line("\"use strict\"").line("import Parser=proto.Parser")
@@ -152,4 +156,15 @@ public class TypeScriptRenderer extends Renderer {
 		);
 	}
 
+	public void write(Package pkg) {
+		super.write(pkg);
+		Path proto = Paths.get(out).getParent().resolve("proto.ts");
+		System.out.println("Writing file "+ proto);
+		try {
+			if (proto.toFile().exists()) proto.toFile().delete();
+			Files.copy(this.getClass().getResourceAsStream("/proto.ts"), proto);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 }

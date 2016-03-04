@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 abstract public class Renderer {
-	private String out;
+	protected String out;
 	public Renderer set(String key, String value) {
 		switch (key) {
 		case "out": out = value; break;
