@@ -5,8 +5,17 @@ If you have any issues with the output of this tool then switch to using a more 
 https://github.com/dcodeIO/ProtoBuf.js/
 
 ##Usage
+First you need to download and build the parser by following the instructions in the build section
+
 ```
-java -jar target/proto-0.0.1-SNAPSHOT.jar <PROTO FILE PATH/FILENAME>
+java -jar target/proto-0.0.1-SNAPSHOT.jar <PROTO FILE PATH/FILENAME>  -ts-out=<OUTPUT .ts PATH/FILENAME>
+```
+This will parse the proto file and (hopefully) output a file containing a module with the same name as the proto package, containing a ```<Message>``` class and a ```<Message>Parser``` class for each message. It will also save a file called proto.ts containing the base parser which all the message parsers extend.
+
+Taking the example of a message of type MyBase which you had encoded in an array buffer called arrayBuffer. You could parse it by calling:
+```
+  var myBase: MyBase;
+  myBase = new MyBaseParser().decode(new DataView(arrayBuffer));
 ```
 
 ##Features
