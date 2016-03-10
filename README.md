@@ -14,6 +14,7 @@ Then you just run it with the following syntax:
 java -jar target/proto-0.0.1-SNAPSHOT.jar [OPTIONS] <PROTO FILE PATH/FILENAME> 
 ```
 Options:
+```
 	--proto-out=<MODIFIED PROTO FILE PATH/NAME>
 	--ts-out=<TYPESCRIPT FILE PATH/NAME>
 	--ts-imports=<TYPESCRIPT FILE PATH/NAME>
@@ -23,6 +24,7 @@ Options:
 	--[proto|ts]-include-classes=<LIST OF MESSAGES NOT TO OUTPUT CLASSES FOR>
 	--ts-include-builders=<LIST OF MESSAGES NOT TO OUTPUT BUILDERS FOR>
 	--ts-include-parsers=<LIST OF MESSAGES NOT TO OUTPUT PARSERS FOR>
+```
 
 This will parse the proto file and (hopefully) output a file containing a module with the same name as the proto package, containing a ```<Message>``` class and a ```<Message>Parser``` class for each message. It will also save a file called proto.ts containing the base parser which all the message parsers extend.
 
