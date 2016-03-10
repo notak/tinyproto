@@ -5,7 +5,8 @@ import java.util.stream.Stream;
 import me.taks.proto.Message.Field.Scope;
 
 public class ProtocRenderer extends Renderer {
-	public Stream<Output> render(Message m) {
+	@Override
+	public Stream<Output> renderClass(Message m) {
 		Output out = new Output().head("message " + m.name)
 		.children(m.childEnums().map(e->
 			new Output().head("enum " + e.name)
@@ -29,7 +30,7 @@ public class ProtocRenderer extends Renderer {
 			"option " + i.getKey() + " = " + i.getValue()
 		));
 		
-		out.children(m.childMessages().flatMap(this::render));
+		out.children(m.childMessages().flatMap(this::renderClass));
 
 		return Stream.of(out);
 	}
@@ -42,7 +43,7 @@ public class ProtocRenderer extends Renderer {
 			p.unknownOpts.entrySet().stream().map(i->new Output().emptyBody(";").head(
 				"option " + i.getKey() + " = \"" + i.getValue() + "\""
 			)),
-			p.childMessages().map(this::render).flatMap(x->x)
+			renderContent(p)
 		).flatMap(i->i);
 	}
 }

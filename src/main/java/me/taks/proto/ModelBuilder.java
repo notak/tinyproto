@@ -30,7 +30,6 @@ public class ModelBuilder extends ProtobufBaseListener {
 			out.complex = type;
 		}
 		return out;
-		
 	}
 	
 	protected Field getItem(String scope, String type, String name, String id) {
@@ -159,10 +158,10 @@ public class ModelBuilder extends ProtobufBaseListener {
 		for (String arg: args) {
 			if (arg.contains("=")) {
 				String[] kv = arg.split("=");
-				String[] parts = kv[0].split("-");
-				renderers.computeIfAbsent(parts[1], 
+				String[] parts = kv[0].substring(1).split("-");
+				renderers.computeIfAbsent(parts[0], 
 					i->i.equals("ts") ? new TypeScriptRenderer() : new ProtocRenderer()
-				).set(parts[2], kv[1]);
+				).set(parts, kv[1]);
 			} else protoFile = arg;
 		}
 		

@@ -17,10 +17,10 @@ import me.taks.proto.Message.Field.Scope;
 public class TypeScriptRenderer extends Renderer {
 	private String imports = "../libs/proto.ts";
 
-	public TypeScriptRenderer set(String key, String value) {
-		switch (key) {
+	public TypeScriptRenderer set(String[] parts, String value) {
+		switch (parts[1]) {
 		case "imports": imports = value; break;
-		default: super.set(key, value);
+		default: super.set(parts, value);
 		}
 		return this;
 	}
@@ -36,21 +36,20 @@ public class TypeScriptRenderer extends Renderer {
 	}
 	
 	public Stream<Output> renderClass(Message m) {
-		Output out = new Output();
-		out.head = "export class " + m.name;
-		m.childEnums().map(e->
+		Output out = new Output()
+		.head("export class " + m.name)
+		.lines(m.childEnums().map(e->
 			"static " + e.name + " = {" +
 			e.items.entrySet().stream().map(i->
 				i.getKey() + ": " + i.getValue() + ","
 			).collect(Collectors.joining(" ")) +
 			"}"
-		).forEach(out.lines::add);
-
-		m.items.stream().map(i->
+		))
+		.lines(m.items.stream().map(i->
 			i.name + " : " + 
 			this.tsType(i.decodedType()) + 
 			(i.scope==Scope.REPEATED || i.scope==Scope.PACKED ? "[]" : "")
-		).forEach(out.lines::add);
+		));
 
 		return Stream.concat(
 			m.childMessages().flatMap(this::renderClass),
@@ -58,24 +57,80 @@ public class TypeScriptRenderer extends Renderer {
 		);
 	}
 	
-	private String decoder(Field i) {
-		Type t;
-		String out = 
-			//TODO: should be able to handle fixed32 and 64...
-			i.scope==Scope.PACKED ? "this.getPacked(lenOrVal, i=>this.getVarInt("+
-				(i.type.builtIn==BuiltIn.SINT32 || i.type.builtIn == BuiltIn.SINT64 ? "true" : "")
-			+"))" :
-			i.type.builtIn==BuiltIn.STRING ? "this.getString(lenOrVal)" :
-			i.type.builtIn==BuiltIn.BOOL ? "!!lenOrVal" :
-			i.type.builtIn==BuiltIn.COMPLEX 
-			&& (t = i.message.getType(i.type.complex)) instanceof Message ?
-				"this."+lcFirst(t.name)+"Parser.decode("
-				+ "this.buf, this.start, this.start + lenOrVal)" :
-			"lenOrVal";
-		
-		if (i.encoding!=null) {
-			out = i.encoding + ".decode(" + out + ")";
+	private String renderLine (Field f) {
+		String fn = ""; 
+		String value = "r." + f.name;
+		switch(f.type.builtIn) {
+		case STRING:
+			fn = "String"; break;
+		case BOOL:
+			fn = "VarInt"; value += " ? 1 : undefined"; break;
+		case INT32: case INT64:
+			fn = "VarInt"; break;
+		case UINT32: case UINT64: //TODO: This is wrong for large values...
+			fn = "VarInt"; break;
+		case SINT32: case SINT64:
+			fn = "VarInt"; value += ", true"; break;
+		case COMPLEX:
+			Type t = f.message.getType(f.type.complex);
+			if (t instanceof Message) {
+				fn = "Builder";
+				value = String.format(
+					"r.%s ? new %sBuilder().build(r.%1$s) : undefined",f.name, t.name
+				);
+			} else fn = "VarInt"; //ENUM
+			break;
+		//TODO: fixed, double and byte would be handy
+		default: throw new UnsupportedOperationException("" + f.type.builtIn);
 		}
+		return ".set" + fn + "(" + f.number + ", " + value + ")";
+	}
+	
+	public Stream<Output> renderBuilder(Message m) {
+		Output out = new Output()
+			.head("export class " + m.name + "Builder extends proto.Builder");
+		Output body = new Output()
+			.head("build(r: " + m.name + ")")
+			.line("return this")
+			.lines(m.items.stream().map(this::renderLine))
+			.line(";");
+		body.lineEnd = "";
+		out.child(body);
+
+		return Stream.concat(
+			m.childMessages().flatMap(this::renderClass),
+			Stream.of(out)
+		);
+	}
+
+	private String unprocessedDecoder(Field i) {
+		if (i.scope==Scope.PACKED) { 
+			return "this.getPacked(lenOrVal, i=>this.getVarInt("+
+			(i.type.builtIn==BuiltIn.SINT32 || i.type.builtIn == BuiltIn.SINT64 ? "true" : "")
+		+"))";
+		} else {
+			switch (i.type.builtIn) {
+			case STRING: return "this.getString(lenOrVal)";
+			case BOOL: return "!!lenOrVal";
+			case COMPLEX:
+				Type t = i.message.getType(i.type.complex);
+				if (t instanceof Message) {
+					return "this."+lcFirst(t.name)+"Parser.decode("
+					+ "this.buf, this.start, this.start + lenOrVal)";
+				} else return "lenOrVal"; //ENUM
+			case INT32: case INT64: return "lenOrVal";
+			case SINT32: case SINT64: return "(lenOrVal >> 1) ^ (-(lenOrVal & 1))";
+			case UINT32: case UINT64: return "lenOrVal"; //TODO: Bounds check for 64
+
+			default: throw new UnsupportedOperationException(""+i.type.builtIn);
+			}
+		}
+	}
+	
+	private String decoder(Field i) {
+		String out = unprocessedDecoder(i);
+		
+		if (i.encoding!=null) out = i.encoding + ".decode(" + out + ")";
 		if (i.subtract!=0) out += "+"+i.subtract;
 		if (i.divisor!=0) out = "("+out+")*"+i.divisor;
 		return out;
@@ -135,12 +190,8 @@ public class TypeScriptRenderer extends Renderer {
 			m.childMessages().flatMap(this::renderParser),
 			Stream.of(out)
 		);
-}
-
-	public Stream<Output> render(Message m) {
-		return Stream.concat(renderParser(m), renderClass(m));
 	}
-	
+
 	public Stream<Output> render(Package p) {
 		return Stream.of(
 			new Output().noGrouping().child(
@@ -151,7 +202,7 @@ public class TypeScriptRenderer extends Renderer {
 			).child(new Output().head("module "+p.name)
 				.child(new Output().noGrouping()
 					.line("\"use strict\"").line("import Parser=proto.Parser")
-				).children(p.childMessages().map(this::render).flatMap(x->x))
+				).children(renderContent(p))
 			)
 		);
 	}

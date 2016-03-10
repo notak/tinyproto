@@ -73,42 +73,93 @@ module proto {
 			return this._out;
 		}
 
+		parse(buf: ArrayBuffer) {
+			return this.decode(new DataView(buf));
+		}
+
 		process(field: number, lenOrVal: number) {
 		}
 	}
 
 	export class Builder {
-		private data = []; //dont use this for large data...
-		public start: number;
+		private data: Uint8Array; //dont use this for large data...
+		private end = 0;
 
-		addVarInt(n: number, zigZag?: boolean) {
+		constructor(size?: number) {
+			this.data = new Uint8Array(size || 128);
+		}
+
+		private double() {
+			var data = new Uint8Array(this.data.length * 2)
+			data.set(this.data);
+			this.data = data;
+		}
+
+		private set(n: number, pos ?: number) {
+			if (pos === undefined) pos = this.end;
+			if (pos >= this.data.length) this.double();
+			this.data[pos++] = n;
+			if (pos > this.end) this.end = pos;
+		}
+
+		private add(n: number, zigZag?: boolean, pos?: number) {
 			if (zigZag) n = (n << 1) ^ (n > 0 ? 0 : 1);
-			while (n) {
-				var out = n & 127;
-				n = n >> 7;
-				this.data.push(out | (n ? 128 : 0));
-			}
+			while (n) this.set(n & 127 | ((n = n >> 7) ? 128 : 0), pos);
 		}
 
 		setString(id: number, s: string) { //todo: only handles single-bit characters
 			if (s !== undefined) {
-				this.addVarInt((id << 3) | 2);
-				this.addVarInt(s.length);
-				for (var i = 0; i < s.length; i++) this.data.push(s.charCodeAt(i));
+				this.add((id << 3) | 2);
+				this.add(s.length);
+				for (var i = 0; i < s.length; i++) this.set(s.charCodeAt(i));
 			}
 			return this;
 		}
 
 		setVarInt(id: number, n: number, zigZag?: boolean) {
 			if (n !== undefined) {
-				this.addVarInt(id << 3);
-				this.addVarInt(n, zigZag);
+				this.add(id << 3);
+				this.add(n, zigZag);
+			}
+			return this;
+		}
+
+		setArrayBuffer(id: number, d: ArrayBuffer) {
+			if (d !== undefined) {
+				var b = new Uint8Array(d);
+				this.add((id << 3) | 2);
+				this.add(b.length);
+				while (this.end + b.length > this.data.length) this.double();
+				this.data.set(b, this.end);
+				this.end += b.length;
+			}
+			return this;
+		}
+
+		setBuilder(id: number, d: Builder) {
+			if (d !== undefined) this.setArrayBuffer(id, d.toArrayBuffer());
+			return this;
+		}
+
+		setPackedVarInts(id: number, d: number[], zigZag?: boolean) {
+			if (d && d.length) {
+				this.add((id << 3) | 2);
+				var start = ++this.end;
+				var b = new Uint8Array(d);
+				for (var i = 0; i < d.length; i++) this.add(d[i], zigZag);
+				var sizeSize = -1;
+				for (var len = this.end - start; len; len = len >> 7) sizeSize++;
+				if (sizeSize) {
+					if (this.data.length <= this.end + sizeSize) this.double();
+					this.data.copyWithin(start, this.end, start + sizeSize);
+					this.end += sizeSize;
+				}
 			}
 			return this;
 		}
 
 		toArrayBuffer() {
-			return Uint8Array.from(this.data).buffer;
+			return new Uint8Array(this.data.slice(0, this.end)).buffer;
 		}
 	}
 }

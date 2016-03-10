@@ -19,8 +19,11 @@ public class Message extends Type {
 		public static class FieldType {
 			enum BuiltIn {
 				INT32, SINT32, UINT32, INT64, SINT64, UINT64,
+				FIXED32, FIXED64, SFIXED32, SFIXED64,
+				DOUBLE, FLOAT,
 				BOOL, 
 				STRING,
+				BYTES,
 				COMPLEX,
 			}
 			BuiltIn builtIn;

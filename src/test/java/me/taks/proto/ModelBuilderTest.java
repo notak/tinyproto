@@ -45,6 +45,80 @@ public class ModelBuilderTest extends TestCase {
 		assertEquals("Packed Signed is id 14", 14, i.number);
 		assertEquals("Packed Signed is called packedSigned", "packedSigned", i.name);
 	}
+	
+	public void testVarInts() throws IOException {
+		ModelBuilder mb = new ModelBuilder().build(
+			"package test;\n"
+			+ "message msg {"
+			+ "optional int64 testInt64 = 6;"
+			+ "optional uint64 testUInt64 = 7;"
+			+ "optional sint64 testSInt64 = 8;"
+			+ "optional int32 testInt32 = 9;"
+			+ "optional uint32 testUInt32 = 10;"
+			+ "optional sint32 testSInt32 = 11;"
+		+ "}");
+		Package pkg = mb.pkg();
+		assertEquals("Message was created", 1, pkg.childMessages().count());
+		Message msg = pkg.childMessages().findFirst().get();
+		assertEquals("All fields were created", 6, msg.items.size());
+		assertEquals(BuiltIn.INT64, msg.items.get(0).type.builtIn);
+		assertEquals(BuiltIn.UINT64, msg.items.get(1).type.builtIn);
+		assertEquals(BuiltIn.SINT64, msg.items.get(2).type.builtIn);
+		assertEquals(BuiltIn.INT32, msg.items.get(3).type.builtIn);
+		assertEquals(BuiltIn.UINT32, msg.items.get(4).type.builtIn);
+		assertEquals(BuiltIn.SINT32, msg.items.get(5).type.builtIn);
+	}
+
+	public void testFixed() throws IOException {
+		ModelBuilder mb = new ModelBuilder().build(
+			"package test;\n"
+			+ "message msg {"
+			+ "optional fixed32 f32 = 6;"
+			+ "optional sfixed32 sf32 = 7;"
+			+ "optional fixed64 f64 = 8;"
+			+ "optional sfixed64 sf64 = 9;"
+		+ "}");
+		Package pkg = mb.pkg();
+		assertEquals("Message was created", 1, pkg.childMessages().count());
+		Message msg = pkg.childMessages().findFirst().get();
+		assertEquals("All fields were created", 4, msg.items.size());
+		assertEquals(BuiltIn.FIXED32, msg.items.get(0).type.builtIn);
+		assertEquals(BuiltIn.SFIXED32, msg.items.get(1).type.builtIn);
+		assertEquals(BuiltIn.FIXED64, msg.items.get(2).type.builtIn);
+		assertEquals(BuiltIn.SFIXED64, msg.items.get(3).type.builtIn);
+	}
+
+	public void testFloating() throws IOException {
+		ModelBuilder mb = new ModelBuilder().build(
+			"package test;\n"
+			+ "message msg {"
+			+ "optional float f = 6;"
+			+ "optional double d = 7;"
+		+ "}");
+		Package pkg = mb.pkg();
+		assertEquals("Message was created", 1, pkg.childMessages().count());
+		Message msg = pkg.childMessages().findFirst().get();
+		assertEquals("All fields were created", 2, msg.items.size());
+		assertEquals(BuiltIn.FLOAT, msg.items.get(0).type.builtIn);
+		assertEquals(BuiltIn.DOUBLE, msg.items.get(1).type.builtIn);
+	}
+
+	public void testStringBoolBytes() throws IOException {
+		ModelBuilder mb = new ModelBuilder().build(
+			"package test;\n"
+			+ "message msg {"
+			+ "optional string s = 6;"
+			+ "optional bool b = 7;"
+			+ "optional bytes by = 8;"
+		+ "}");
+		Package pkg = mb.pkg();
+		assertEquals("Message was created", 1, pkg.childMessages().count());
+		Message msg = pkg.childMessages().findFirst().get();
+		assertEquals("All fields were created", 3, msg.items.size());
+		assertEquals(BuiltIn.STRING, msg.items.get(0).type.builtIn);
+		assertEquals(BuiltIn.BOOL, msg.items.get(1).type.builtIn);
+		assertEquals(BuiltIn.BYTES, msg.items.get(2).type.builtIn);
+	}
 
 	public void testEnumAndGlobalMessage() throws IOException {
 		ModelBuilder mb = new ModelBuilder().build(
