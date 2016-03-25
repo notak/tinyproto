@@ -168,6 +168,12 @@ public class ModelBuilder extends ProtobufBaseListener {
 		if (protoFile==null || renderers.isEmpty()) {
 			System.out.println("Usage: java -jar proto.jar OPTIONS <INPUT PROTO FILE>.\n"
 					+ "OPTIONS:\n"
+					+ "\t-[ts|proto]-include-parsers=<MESSAGE>[,<MESSAGE>]* \n"
+					+ "\t-[ts|proto]-exclude-parsers=<MESSAGE>[,<MESSAGE>]* \n"
+					+ "\t-[ts|proto]-include-classes=<MESSAGE>[,<MESSAGE>]* \n"
+					+ "\t-[ts|proto]-exclude-classes=<MESSAGE>[,<MESSAGE>]* \n"
+					+ "\t-[ts|proto]-include-builders=<MESSAGE>[,<MESSAGE>]* \n"
+					+ "\t-[ts|proto]-exclude-builders=<MESSAGE>[,<MESSAGE>]* \n"
 					+ "\t-ts-out=<OUTPUT FILE>.ts \n"
 					+ "\t-ts-imports=<INCLUDE>.ts[:<INCLUDE>.ts]* \n"
 					+ "\t-ts-includes=<INCLUDE>.ts[:<INCLUDE>.ts]* \n"
