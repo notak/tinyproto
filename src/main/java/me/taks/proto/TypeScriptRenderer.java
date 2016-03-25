@@ -15,7 +15,7 @@ import me.taks.proto.Message.Field.FieldType.BuiltIn;
 import me.taks.proto.Message.Field.Scope;
 
 public class TypeScriptRenderer extends Renderer {
-	private String imports = "../libs/proto.ts";
+	private String imports = "";
 
 	public TypeScriptRenderer set(String[] parts, String value) {
 		switch (parts[1]) {
@@ -195,10 +195,12 @@ public class TypeScriptRenderer extends Renderer {
 	public Stream<Output> render(Package p) {
 		return Stream.of(
 			new Output().noGrouping().child(
-				new Output().noGrouping().lines(
+				new Output().noGrouping()
+				.line("/// <reference path=\"proto.ts\" />")
+				.lines(
 					Arrays.stream(imports.split(""+File.pathSeparatorChar))
 					.map(s->"/// <reference path=\"" + s + "\" />")
-				).line("/// <reference path=\"proto.ts\" />")
+				)
 			).child(new Output().head("module "+p.name)
 				.child(new Output().noGrouping()
 					.line("\"use strict\"").line("import Parser=proto.Parser")
