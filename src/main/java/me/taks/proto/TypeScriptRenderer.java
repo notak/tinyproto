@@ -69,6 +69,8 @@ public class TypeScriptRenderer extends Renderer {
 			fn = "VarInt"; break;
 		case UINT32: case UINT64: //TODO: This is wrong for large values...
 			fn = "VarInt"; break;
+		case BYTES:
+			fn = "ArrayBuffer"; break;
 		case SINT32: case SINT64:
 			fn = "VarInt"; value += ", true"; break;
 		case COMPLEX:
@@ -118,6 +120,7 @@ public class TypeScriptRenderer extends Renderer {
 					return "this."+lcFirst(t.name)+"Parser.decode("
 					+ "this.buf, this.start, this.start + lenOrVal)";
 				} else return "lenOrVal"; //ENUM
+			case BYTES: return "this.buf.slice(this.start, this.start + lenOrVal)";
 			case INT32: case INT64: return "lenOrVal";
 			case SINT32: case SINT64: return "(lenOrVal >> 1) ^ (-(lenOrVal & 1))";
 			case UINT32: case UINT64: return "lenOrVal"; //TODO: Bounds check for 64
