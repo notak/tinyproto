@@ -22,8 +22,8 @@ Options:
 	--ts-include-builders=<LIST OF MESSAGES TO OUTPUT BUILDERS FOR>
 	--ts-include-parsers=<LIST OF MESSAGES TO OUTPUT PARSERS FOR>
 	--[proto|ts]-include-classes=<LIST OF MESSAGES NOT TO OUTPUT CLASSES FOR>
-	--ts-include-builders=<LIST OF MESSAGES NOT TO OUTPUT BUILDERS FOR>
-	--ts-include-parsers=<LIST OF MESSAGES NOT TO OUTPUT PARSERS FOR>
+	--ts-exclude-builders=<LIST OF MESSAGES NOT TO OUTPUT BUILDERS FOR>
+	--ts-exclude-parsers=<LIST OF MESSAGES NOT TO OUTPUT PARSERS FOR>
 ```
 
 This will parse the proto file and (hopefully) output a file containing a module with the same name as the proto package, containing a ```<Message>``` class and a ```<Message>Parser``` class for each message. It will also save a file called proto.ts containing the base parser which all the message parsers extend.
