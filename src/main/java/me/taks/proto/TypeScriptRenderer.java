@@ -29,6 +29,7 @@ public class TypeScriptRenderer extends Renderer {
 		switch (type.builtIn) {
 		case BOOL: return "boolean";
 		case STRING: return "string";
+		case BYTES: return "ArrayBuffer";
 		case COMPLEX: 
 			return type.complex() instanceof Message.Enum ? "number" : type.complex;
 		default: return "number";
@@ -120,7 +121,7 @@ public class TypeScriptRenderer extends Renderer {
 					return "this."+lcFirst(t.name)+"Parser.decode("
 					+ "this.buf, this.start, this.start + lenOrVal)";
 				} else return "lenOrVal"; //ENUM
-			case BYTES: return "this.buf.slice(this.start, this.start + lenOrVal)";
+			case BYTES: return "this.buf.buffer.slice(this.start, this.start + lenOrVal)";
 			case INT32: case INT64: return "lenOrVal";
 			case SINT32: case SINT64: return "(lenOrVal >> 1) ^ (-(lenOrVal & 1))";
 			case UINT32: case UINT64: return "lenOrVal"; //TODO: Bounds check for 64
