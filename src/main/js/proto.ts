@@ -36,6 +36,13 @@ module proto {
 			return out;
 		}
 
+		getFixed(bytes: number) {
+			let out=0;
+			//TODO: assumes a 64 bit number fits
+			for (let i=0; i<bytes; i++) out += this.buf.getUint8(this.start++) << i*8;
+			return out;
+		}
+
 		protected startDecode() { }
 
 		protected endDecode() { }

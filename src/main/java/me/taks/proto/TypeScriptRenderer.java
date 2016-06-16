@@ -125,6 +125,8 @@ public class TypeScriptRenderer extends Renderer {
 			case INT32: case INT64: return "lenOrVal";
 			case SINT32: case SINT64: return "(lenOrVal >> 1) ^ (-(lenOrVal & 1))";
 			case UINT32: case UINT64: return "lenOrVal"; //TODO: Bounds check for 64
+			case FIXED64: return "this.getFixed(8)";//TODO: Bounds check for 64
+			case FIXED32: return "this.getFixed(4)";//TODO: Bounds check for 64
 
 			default: throw new UnsupportedOperationException(""+i.type.builtIn);
 			}
