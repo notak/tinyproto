@@ -23,9 +23,12 @@ module proto {
 			return zigZag ? (n >> 1) ^ (-(n & 1)) : n;
 		}
 
+		getBytes(len: number) {
+			return new Uint8Array(this.buf.buffer, this.start, len);
+		}
+
 		getString(len: number) {
-			var uints = new Uint8Array(this.buf.buffer, this.start, len);
-			return String.fromCodePoint.apply(null, uints);
+			return String.fromCodePoint.apply(null, this.getBytes(len));
 		}
 
 		getPacked(len: number, fn: Function) {
@@ -111,7 +114,7 @@ module proto {
 
 		private add(n: number, zigZag?: boolean, pos?: number) {
 			if (zigZag) n = (n << 1) ^ (n > 0 ? 0 : 1);
-			while (n) this.set(n & 127 | ((n = n >> 7) ? 128 : 0), pos);
+			do { this.set(n & 127 | ((n = n >> 7) ? 128 : 0), pos); } while (n);
 		}
 
 		setString(id: number, s: string) { //todo: only handles single-bit characters
@@ -119,6 +122,13 @@ module proto {
 				this.add((id << 3) | 2);
 				this.add(s.length);
 				for (var i = 0; i < s.length; i++) this.set(s.charCodeAt(i));
+			}
+			return this;
+		}
+
+		setStrings(id: number, n: string[]) {
+			if (n !== undefined) {
+				n.forEach(i=>this.setString(id, i));
 			}
 			return this;
 		}
@@ -131,8 +141,15 @@ module proto {
 			return this;
 		}
 
+		setVarInts(id: number, n: number[], zigZag?: boolean) {
+			if (n !== undefined) {
+				n.forEach(i=>this.setVarInt(id, i, zigZag));
+			}
+			return this;
+		}
+
 		setArrayBuffer(id: number, d: ArrayBuffer) {
-			if (d !== undefined) {
+			if (d && d.byteLength) {
 				var b = new Uint8Array(d);
 				this.add((id << 3) | 2);
 				this.add(b.length);

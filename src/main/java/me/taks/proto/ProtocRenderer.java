@@ -40,9 +40,11 @@ public class ProtocRenderer extends Renderer {
 		out.emptyBody = ";";
 		return Stream.of(
 			Stream.of(out),
-			p.unknownOpts.entrySet().stream().map(i->new Output().emptyBody(";").head(
+			p.imports.stream().map(n->"import " + n)
+				.map(new Output().emptyBody(";")::head),
+			p.unknownOpts.entrySet().stream().map(i->
 				"option " + i.getKey() + " = \"" + i.getValue() + "\""
-			)),
+			).map(new Output().emptyBody(";")::head),
 			renderContent(p)
 		).flatMap(i->i);
 	}

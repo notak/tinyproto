@@ -43,6 +43,11 @@ public class ModelBuilder extends ProtobufBaseListener {
 	}
 	
 	@Override
+	public void enterImport_file_name(Import_file_nameContext ctx) {
+		pkg.imports.add(ctx.getText());
+	}
+	
+	@Override
 	public void enterMessage_item_def(Message_item_defContext ctx) {
 		message.items.add(item = getItem(
 			ctx.getChild(0).getText(), ctx.getChild(1).getText(), 

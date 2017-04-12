@@ -86,6 +86,7 @@ public class TypeScriptRenderer extends Renderer {
 		//TODO: fixed, double and byte would be handy
 		default: throw new UnsupportedOperationException("" + f.type.builtIn);
 		}
+		if (f.scope == Scope.REPEATED) fn+="s";
 		return ".set" + fn + "(" + f.number + ", " + value + ")";
 	}
 	
@@ -123,7 +124,7 @@ public class TypeScriptRenderer extends Renderer {
 				} else return "lenOrVal"; //ENUM
 			case BYTES: return "this.buf.buffer.slice(this.start, this.start + lenOrVal)";
 			case INT32: case INT64: return "lenOrVal";
-			case SINT32: case SINT64: return "(lenOrVal >> 1) ^ (-(lenOrVal & 1))";
+			case SINT32: case SINT64: return "(lenOrVal >>> 1) ^ (-(lenOrVal & 1))";
 			case UINT32: case UINT64: return "lenOrVal"; //TODO: Bounds check for 64
 			case FIXED64: return "this.getFixed(8)";//TODO: Bounds check for 64
 			case FIXED32: return "this.getFixed(4)";//TODO: Bounds check for 64
