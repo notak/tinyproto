@@ -10,9 +10,9 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.apache.commons.lang3.StringEscapeUtils;
 
 import me.taks.proto.Message.Field;
-import me.taks.proto.Message.Field.FieldType;
+import me.taks.proto.Message.FieldType;
 import me.taks.proto.Message.Field.Scope;
-import me.taks.proto.Message.Field.FieldType.BuiltIn;
+import me.taks.proto.Message.FieldType.BuiltIn;
 import me.taks.proto.ProtobufParser.*;
 
 public class ModelBuilder extends ProtobufBaseListener {

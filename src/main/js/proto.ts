@@ -1,19 +1,18 @@
-module proto {
-	"use strict"
+	export interface Supplier<T> { (): T }
 	
 	export class Parser<T> {
 		public _out: T;
 		public buf: DataView;
-		public start: number;
-		public end: number;
+		public start: number = 0;
+		public end: number = 0;
 
-		constructor(protected root?: Parser<any>) {}
+		constructor() {}
 
 		getIdByte() {
 			this.buf.getUint8(this.start++);
 		}
 
-		getVarInt(zigZag?: boolean) { //TODO: assumes fits in a signed number
+		getVarInt(zigZag = false) { //TODO: assumes fits in a signed number
 			var n = 0;
 			var i=0;
 			do {
@@ -31,8 +30,8 @@ module proto {
 			return String.fromCodePoint.apply(null, this.getBytes(len));
 		}
 
-		getPacked(len: number, fn: Function) {
-			var out = [];
+		getPacked<T>(len: number, fn: Supplier<T>) {
+			var out:any = [];
 			var start = this.start;
 			while (this.start < start + len) out.push(fn());
 			this.start = start; //shouldn't have moved pointer forward...
@@ -49,12 +48,6 @@ module proto {
 		protected startDecode() { }
 
 		protected endDecode() { }
-
-		// This should be called on the root parser;
-		// if a superclass is defined in the map, use that. Otherwise use the provided type
-		protected getParser(type: typeof Parser) {
-			return this.root ? this.root.getParser(type) : new type(this);
-		}
 
 		decode(buf: DataView, start?: number, end?: number): T {
 			this.buf = buf;
@@ -91,12 +84,30 @@ module proto {
 		}
 	}
 
+	export interface CallbackListParserCallback {
+		(buf: ArrayBuffer, id: number): void
+	}
+
+	export class CallbackListParser extends Parser<any> {
+		constructor(private cb: CallbackListParserCallback) {
+			super();
+		}
+		
+	    process(field: number, lenOrVal: number) {
+			//assumes all fields are fixed width
+			this.cb(this.buf.buffer.slice(
+				this.start + this.buf.byteOffset,
+				this.start + this.buf.byteOffset + lenOrVal
+			), field); 
+		}
+	}
+	
 	export class Builder {
 		private data: Uint8Array; //dont use this for large data...
 		private end = 0;
 
-		constructor(size?: number) {
-			this.data = new Uint8Array(size || 128);
+		constructor(size = 128) {
+			this.data = new Uint8Array(size);
 		}
 
 		private double() {
@@ -105,19 +116,19 @@ module proto {
 			this.data = data;
 		}
 
-		private set(n: number, pos ?: number) {
-			if (pos === undefined) pos = this.end;
+		private set(n: number, pos = -1) {
+			if (pos<0) pos = this.end;
 			if (pos >= this.data.length) this.double();
 			this.data[pos++] = n;
 			if (pos > this.end) this.end = pos;
 		}
 
-		private add(n: number, zigZag?: boolean, pos?: number) {
+		private add(n: number, zigZag=false, pos=-1) {
 			if (zigZag) n = (n << 1) ^ (n > 0 ? 0 : 1);
 			do { this.set(n & 127 | ((n = n >> 7) ? 128 : 0), pos); } while (n);
 		}
 
-		setString(id: number, s: string) { //todo: only handles single-bit characters
+		setString(id: number, s: string|undefined) { //todo: only handles single-bit characters
 			if (s !== undefined) {
 				this.add((id << 3) | 2);
 				this.add(s.length);
@@ -126,14 +137,14 @@ module proto {
 			return this;
 		}
 
-		setStrings(id: number, n: string[]) {
+		setStrings(id: number, n: string[]|undefined) {
 			if (n !== undefined) {
 				n.forEach(i=>this.setString(id, i));
 			}
 			return this;
 		}
 
-		setVarInt(id: number, n: number, zigZag?: boolean) {
+		setVarInt(id: number, n: number|undefined, zigZag = false) {
 			if (n !== undefined) {
 				this.add(id << 3);
 				this.add(n, zigZag);
@@ -141,14 +152,14 @@ module proto {
 			return this;
 		}
 
-		setVarInts(id: number, n: number[], zigZag?: boolean) {
+		setVarInts(id: number, n: number[]|undefined, zigZag = false) {
 			if (n !== undefined) {
 				n.forEach(i=>this.setVarInt(id, i, zigZag));
 			}
 			return this;
 		}
 
-		setArrayBuffer(id: number, d: ArrayBuffer) {
+		setArrayBuffer(id: number, d: ArrayBuffer|undefined) {
 			if (d && d.byteLength) {
 				var b = new Uint8Array(d);
 				this.add((id << 3) | 2);
@@ -160,12 +171,16 @@ module proto {
 			return this;
 		}
 
-		setBuilder(id: number, d: Builder) {
+		setBuilder(id: number, d: Builder|undefined) {
 			if (d !== undefined) this.setArrayBuffer(id, d.toArrayBuffer());
 			return this;
 		}
 
-		setPackedVarInts(id: number, d: number[], zigZag?: boolean) {
+		setBuilders(id: number, d: Builder[]) {
+			d.forEach(b=>this.setBuilder(id, b));
+		}
+
+		setPackedVarInts(id: number, d: number[], zigZag = false) {
 			if (d && d.length) {
 				this.add((id << 3) | 2);
 				var start = ++this.end;
@@ -186,4 +201,3 @@ module proto {
 			return new Uint8Array(this.data.slice(0, this.end)).buffer;
 		}
 	}
-}

@@ -7,37 +7,31 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import me.taks.proto.Message.Field.Scope;
-import me.taks.proto.Message.Field.FieldType.BuiltIn;
 
 public class Message extends Type {
-	
-	public Message(Package pkg, Message parent, String name) {
-		super(pkg, parent, name);
+
+	public static class FieldType {
+		enum BuiltIn {
+			INT32, SINT32, UINT32, INT64, SINT64, UINT64,
+			FIXED32, FIXED64, SFIXED32, SFIXED64,
+			DOUBLE, FLOAT,
+			BOOL, 
+			STRING,
+			BYTES,
+			COMPLEX,
+		}
+		BuiltIn builtIn;
+		String complex;
+		Field field;
+		Type complex() {
+			return this.field.message.resolveType(complex);
+		}
+		public FieldType(Field field) { this.field = field; }
 	}
 
 	public static class Field {
-		public static class FieldType {
-			enum BuiltIn {
-				INT32, SINT32, UINT32, INT64, SINT64, UINT64,
-				FIXED32, FIXED64, SFIXED32, SFIXED64,
-				DOUBLE, FLOAT,
-				BOOL, 
-				STRING,
-				BYTES,
-				COMPLEX,
-			}
-			BuiltIn builtIn;
-			String complex;
-			Field field;
-			Type complex() {
-				return this.field.message.getType(complex);
-			}
-			public FieldType(Field field) { this.field = field; }
-		}
 		
-		enum Scope {
-			REQUIRED, OPTIONAL, REPEATED, PACKED
-		}
+		enum Scope { REQUIRED, OPTIONAL, REPEATED, PACKED }
 
 		public Message message;
 		public String name;
@@ -56,24 +50,21 @@ public class Message extends Type {
 		}
 	}
 	
-	public static class Enum extends Type {
-		public Enum(Package pkg, Message parent, String name) {
-			super(pkg, parent, name);
-			// TODO Auto-generated constructor stub
-		}
-		public Map<String, Integer> items = new LinkedHashMap<>();
-		public Map<String, String> unknownOpts = new LinkedHashMap<>();
-		public boolean allowAlias;
+	public Message(Package pkg, Message parent, String name) {
+		super(pkg, parent, name);
 	}
 	
 	public List<Field> items = new ArrayList<>();
 	
 	public Stream<Field> complex() {
-		return items.stream().filter(i->i.type.builtIn==BuiltIn.COMPLEX);
+		return items.stream()
+			.filter(i->i.type.builtIn==FieldType.BuiltIn.COMPLEX);
 	}
 	
 	public Stream<Type> messages() {
-		return complex().map(i->getType(i.type.complex)).filter(i->i instanceof Message);
+		return complex()
+			.map(i->resolveType(i.type.complex))
+			.filter(i->i instanceof Message);
 	}
 	
 	public Stream<Field> packed() {

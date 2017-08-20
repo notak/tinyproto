@@ -14,10 +14,10 @@ import me.taks.proto.Message.FieldType;
 import me.taks.proto.Message.FieldType.BuiltIn;
 import me.taks.proto.Message.Field.Scope;
 
-public class TypeScriptRenderer extends Renderer {
+public class JavaRenderer extends Renderer {
 	private String imports = "";
 
-	public TypeScriptRenderer set(String[] parts, String value) {
+	public JavaRenderer set(String[] parts, String value) {
 		switch (parts[1]) {
 		case "imports": imports = value; break;
 		default: super.set(parts, value);
@@ -25,45 +25,32 @@ public class TypeScriptRenderer extends Renderer {
 		return this;
 	}
 	
-	private static String tsType(FieldType type, boolean repeated) {
+	private String tsType(FieldType type) {
 		switch (type.builtIn) {
 		case BOOL: return "boolean";
-		case STRING: return "string";
-		case BYTES: return "ArrayBuffer";
+		case STRING: return "String";
+		case BYTES: return "byte[]";
 		case COMPLEX: 
-			return type.complex().isEnum() ? "number" : type.complex + (!repeated ? "|undefined" : "");
+			return type.complex().isEnum() ? "int" : type.complex;
 		default: return "number";
-		}
-	}
-	
-	private static String defaultVal(Field f) {
-		if (f.defaultVal!=null) return f.defaultVal;
-		if (f.scope==Scope.REPEATED || f.scope==Scope.PACKED) return "[]";
-		switch (f.decodedType().builtIn) {
-		case INT32: case INT64: case SINT32: case SINT64: return "0";
-		case BOOL: return "false";
-		case STRING: return "\"\"";
-		case COMPLEX: 
-			return f.decodedType().complex().isEnum() ? "0" : "undefined";
-		default: return "";
 		}
 	}
 	
 	public Stream<Output> renderClass(Message m) {
 		Output out = new Output()
-		.head("export class " + m.name)
+		.head("public class " + m.name)
 		.lines(m.childEnums().map(e->
-			"static " + e.name + " = {" +
+			"public static class " + e.name + " {" +
 			e.items.entrySet().stream().map(i->
-				i.getKey() + ": " + i.getValue() + ","
+				"public static final int " + i.getKey() 
+					+ ": " + i.getValue() + ","
 			).collect(Collectors.joining(" ")) +
 			"}"
 		))
 		.lines(m.items.stream().map(i->
 			i.name + " : " + 
-			tsType(i.decodedType(), i.scope==Scope.REPEATED || i.scope==Scope.PACKED) + 
-			(i.scope==Scope.REPEATED || i.scope==Scope.PACKED ? "[]" : "") +
-			(defaultVal(i).length()>0 ? (" = " + defaultVal(i)) : "")
+			this.tsType(i.decodedType()) + 
+			(i.scope==Scope.REPEATED || i.scope==Scope.PACKED ? "[]" : "")
 		));
 
 		return Stream.concat(
@@ -77,32 +64,26 @@ public class TypeScriptRenderer extends Renderer {
 		String value = "r." + f.name;
 		switch(f.type.builtIn) {
 		case STRING:
-			fn = "String"; break;
+			fn = "string"; break;
 		case BOOL:
-			fn = "VarInt"; value += " ? 1 : undefined"; break;
+			fn = "varInt"; value += " ? 1 : undefined"; break;
 		case INT32: case INT64:
-			fn = "VarInt"; break;
+			fn = "varInt"; break;
 		case UINT32: case UINT64: //TODO: This is wrong for large values...
-			fn = "VarInt"; break;
+			fn = "varInt"; break;
 		case BYTES:
-			fn = "ArrayBuffer"; break;
-		case SINT32: case SINT64:
-			fn = "VarInt"; value += ", true"; break;
+			fn = "bytes"; break;
+		case SINT32:
+			fn = "varInt"; value += ", true"; break;
+		case SINT64:
+			fn = "varLong"; value += ", true"; break;
 		case COMPLEX:
 			Type t = f.message.resolveType(f.type.complex);
 			if (t instanceof Message) {
 				fn = "Builder";
-				if (f.scope == Scope.REPEATED) {
-					value = String.format(
-							"r.%s.map(x=>new %sBuilder().build(x))",
-							f.name, t.name
-						);
-				} else {
-					value = String.format(
-						"r.%s ? new %sBuilder().build(r.%1$s) : undefined",
-						f.name, t.name
-					);
-				}
+				value = String.format(
+					"r.%s ? new %sBuilder().build(r.%1$s) : undefined",f.name, t.name
+				);
 			} else fn = "VarInt"; //ENUM
 			break;
 		//TODO: fixed, double and byte would be handy
@@ -114,7 +95,7 @@ public class TypeScriptRenderer extends Renderer {
 	
 	public Stream<Output> renderBuilder(Message m) {
 		Output out = new Output()
-			.head("export class " + m.name + "Builder extends Builder");
+			.head("export class " + m.name + "Builder extends proto.Builder");
 		Output body = new Output()
 			.head("build(r: " + m.name + ")")
 			.line("return this")
@@ -131,7 +112,7 @@ public class TypeScriptRenderer extends Renderer {
 
 	private String unprocessedDecoder(Field i) {
 		if (i.scope==Scope.PACKED) { 
-			return "this.getPacked(lenOrVal, ()=>this.getVarInt("+
+			return "this.getPacked(lenOrVal, i=>this.getVarInt("+
 			(i.type.builtIn==BuiltIn.SINT32 || i.type.builtIn == BuiltIn.SINT64 ? "true" : "")
 		+"))";
 		} else {
@@ -169,14 +150,10 @@ public class TypeScriptRenderer extends Renderer {
 		return Character.toLowerCase(in.charAt(0)) + in.substring(1);
 	}
 	
-	private static final String PARSER_HEAD = 
-			"export class %sParser extends Parser<%s>";
-	private static final String SUBPARSER_DECL = 
-			"protected %sParser: %sParser";
-	private static final String SUBPARSER_INST = 
-			"this.%sParser=new %sParser()";
-	private static final String MAP_FIELD = 
-			"case %d: this._out.%s%s; break";
+	private static final String PARSER_HEAD = "export class %sParser extends Parser<%s>";
+	private static final String SUBPARSER_DECL = "private %sParser: %sParser";
+	private static final String SUBPARSER_INST = "this.%sParser=this.getParser(%sParser)";
+	private static final String MAP_FIELD = "case %d: this._out.%s%s; break";
 	
 	public Stream<Output> renderParser(Message m) {
 		Output out = new Output();
@@ -188,11 +165,11 @@ public class TypeScriptRenderer extends Renderer {
 
 		out.child(
 			new Output()
-			.head("constructor()")
-			.line("super()")
+			.head("constructor(root?: Parser<any>)")
+			.line("super(root)")
 			.lines(
 				m.messages().map(i->i.name).distinct()
-				.map(i->String.format(SUBPARSER_INST, lcFirst(i), i, i))
+				.map(i->String.format(SUBPARSER_INST, lcFirst(i), i))
 			)
 		);
 		
@@ -203,10 +180,7 @@ public class TypeScriptRenderer extends Renderer {
 			.lines(m.repeated().map(i->"o." + i.name + "=[]"))
 			.lines(m.packed().map(i->"o." + i.name + "=[]"))
 			.lines(m.defaults().map(i->"o." + i.name + "=" + 
-				(i.type.builtIn==BuiltIn.STRING 
-					? "\"" + i.defaultVal + "\"" 
-					: i.defaultVal
-				)
+				(i.type.builtIn==BuiltIn.STRING ? "\"" + i.defaultVal + "\"" : i.defaultVal)
 			))
 		);
 
@@ -232,12 +206,16 @@ public class TypeScriptRenderer extends Renderer {
 		return Stream.of(
 			new Output().noGrouping().child(
 				new Output().noGrouping()
-				.line("import { Parser, Builder } from \"./proto.js\"")
+				.line("/// <reference path=\"proto.ts\" />")
 				.lines(
 					Arrays.stream(imports.split(""+File.pathSeparatorChar))
-					.map(s->"import * as "+s+"  from \"./" + s + "\"")
+					.map(s->"/// <reference path=\"" + s + "\" />")
 				)
-			).children(renderContent(p))
+			).child(new Output().head("module "+p.name)
+				.child(new Output().noGrouping()
+					.line("\"use strict\"").line("import Parser=proto.Parser")
+				).children(renderContent(p))
+			)
 		);
 	}
 

@@ -1,27 +1,24 @@
 package me.taks.proto;
 
-import me.taks.proto.Message.Enum;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
 public class Type {
-	public Package pkg;
-	public Message parent;
+	public final Package pkg;
+	public final Message parent;
 	
-	public String name;
-	public Map<String, Type> types = new LinkedHashMap<>();
-	public Map<String, String> unknownOpts = new LinkedHashMap<>();
+	public final String name;
+	public final Map<String, Type> types = new LinkedHashMap<>();
+	public final Map<String, String> unknownOpts = new LinkedHashMap<>();
 
 	public Type(Package pkg, Message parent, String name) {
-		super();
 		this.pkg = pkg;
 		this.parent = parent;
 		this.name = name;
 	}
 
-	public Type getType(String typeName) {
+	public Type resolveType(String typeName) {
 		Type out = this;
 		for (String type: typeName.split("\\.")) {
 			out = out.types.get(type);
@@ -37,11 +34,27 @@ public class Type {
 	}
 
 	public Stream<Message> childMessages() {
-		return types.values().stream().filter(i->i instanceof Message).map(i->(Message)i);
+		return types.values().stream()
+			.filter(i->i instanceof Message)
+			.map(i->(Message)i);
 	}
 	
 	public Stream<Enum> childEnums() {
-		return types.values().stream().filter(i->i instanceof Enum).map(i->(Enum)i);
+		return types.values().stream()
+			.filter(i->i instanceof Enum)
+			.map(i->(Enum)i);
 	}
 	
+	public boolean isEnum() { return false; }
+
+	public static class Enum extends Type {
+		public Enum(Package pkg, Message parent, String name) {
+			super(pkg, parent, name);
+			// TODO Auto-generated constructor stub
+		}
+		public final Map<String, Integer> items = new LinkedHashMap<>();
+		public final Map<String, String> unknownOpts = new LinkedHashMap<>();
+		public boolean allowAlias;
+		public boolean isEnum() { return true; }
+	}
 }
