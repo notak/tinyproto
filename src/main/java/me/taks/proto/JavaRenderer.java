@@ -25,14 +25,24 @@ public class JavaRenderer extends Renderer {
 		return this;
 	}
 	
-	private String tsType(FieldType type) {
+	private String javaType(FieldType type) {
 		switch (type.builtIn) {
 		case BOOL: return "boolean";
 		case STRING: return "String";
 		case BYTES: return "byte[]";
 		case COMPLEX: 
 			return type.complex().isEnum() ? "int" : type.complex;
-		default: return "number";
+		case INT32: case FIXED32: case SINT32: case SFIXED32:
+			return "int";
+		case INT64: case SINT64: case FIXED64: case SFIXED64:
+			return "long";
+		case DOUBLE:
+			return "double";
+		case FLOAT:
+			return "float";
+		case UINT32: case UINT64:
+		default:
+			throw new Error("uint types are not supported");
 		}
 	}
 	
@@ -49,7 +59,7 @@ public class JavaRenderer extends Renderer {
 		))
 		.lines(m.items.stream().map(i->
 			i.name + " : " + 
-			this.tsType(i.decodedType()) + 
+			javaType(i.decodedType()) + 
 			(i.scope==Scope.REPEATED || i.scope==Scope.PACKED ? "[]" : "")
 		));
 
@@ -66,7 +76,7 @@ public class JavaRenderer extends Renderer {
 		case STRING:
 			fn = "string"; break;
 		case BOOL:
-			fn = "varInt"; value += " ? 1 : undefined"; break;
+			fn = "varInt"; value += "!=0"; break;
 		case INT32: case INT64:
 			fn = "varInt"; break;
 		case UINT32: case UINT64: //TODO: This is wrong for large values...
@@ -190,7 +200,7 @@ public class JavaRenderer extends Renderer {
 			.child(new Output().head("switch (field)").lines(
 				m.items.stream()
 				.map(i->String.format(MAP_FIELD, i.number, i.name,
-					i.scope==Scope.REPEATED ? ".push(" + decoder(i) + ")" :
+					i.scope==Scope.REPEATED ? ".add(" + decoder(i) + ")" :
 					" = " + decoder(i)
 				))
 			))
@@ -225,7 +235,7 @@ public class JavaRenderer extends Renderer {
 		System.out.println("Writing file "+ proto);
 		try {
 			if (proto.toFile().exists()) proto.toFile().delete();
-			Files.copy(this.getClass().getResourceAsStream("/proto.ts"), proto);
+			Files.copy(this.getClass().getResourceAsStream("/proto.java"), proto);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

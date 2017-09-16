@@ -109,7 +109,11 @@ public class ModelBuilder extends ProtobufBaseListener {
 	
 	@Override
 	public void enterEnum_def(Enum_defContext ctx) {
-		Message.Enum e = new Message.Enum(pkg, message, ctx.getChild(1).getText());
+		String name = ctx.getChild(1).getText();
+		if (message==null) {
+			throw new Error(String.format("enum %s has no enclosing message", name));
+		}
+		Message.Enum e = new Message.Enum(pkg, message, name);
 		currentEnum = e;
 		message.types.put(e.name, e);
 	}
@@ -163,10 +167,11 @@ public class ModelBuilder extends ProtobufBaseListener {
 		for (String arg: args) {
 			if (arg.contains("=")) {
 				String[] kv = arg.split("=");
+				String v = kv.length>1 ? kv[1] : "";
 				String[] parts = kv[0].substring(1).split("-");
 				renderers.computeIfAbsent(parts[0], 
 					i->i.equals("ts") ? new TypeScriptRenderer() : new ProtocRenderer()
-				).set(parts, kv[1]);
+				).set(parts, v);
 			} else protoFile = arg;
 		}
 		
@@ -184,9 +189,12 @@ public class ModelBuilder extends ProtobufBaseListener {
 					+ "\t-ts-includes=<INCLUDE>.ts[:<INCLUDE>.ts]* \n"
 					+ "\t-proto-out=<OUTPUT FILE>.proto");
 		} else {
-	
-			ModelBuilder mb = new ModelBuilder().buildFile(protoFile);
-			renderers.values().forEach(r->r.write(mb.pkg));
+			try {
+				ModelBuilder mb = new ModelBuilder().buildFile(protoFile);
+				renderers.values().forEach(r->r.write(mb.pkg));
+			} catch (Error e) {
+				System.out.println("Compilation failed: "+e.getMessage());
+			}
 		}
 	}
 }
