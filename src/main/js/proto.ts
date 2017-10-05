@@ -57,7 +57,7 @@
 			this.startDecode();
 
 			while (this.start < this.end) {
-				var id = buf.getUint8(this.start++);
+				var id = this.getVarInt();
 				var value = 0;
 				var length = 0;
 				switch (id & 7) {
@@ -178,6 +178,7 @@
 
 		setBuilders(id: number, d: Builder[]) {
 			d.forEach(b=>this.setBuilder(id, b));
+			return this;
 		}
 
 		setPackedVarInts(id: number, d: number[], zigZag = false) {

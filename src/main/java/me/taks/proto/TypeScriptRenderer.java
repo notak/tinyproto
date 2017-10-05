@@ -235,7 +235,7 @@ public class TypeScriptRenderer extends Renderer {
 				.line("import { Parser, Builder } from \"./proto.js\"")
 				.lines(
 					Arrays.stream(imports.split(""+File.pathSeparatorChar))
-					.map(s->"import * as "+s+"  from \"./" + s + "\"")
+					.map(s->"import * as "+s+"  from \"./" + s + ".js\"")
 				)
 			).children(renderContent(p))
 		);
