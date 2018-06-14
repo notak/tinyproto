@@ -48,15 +48,14 @@ Taking the example of a message of type MyBase which you had encoded in an array
 
 * Not implemented yet: a ```decimalPlaces``` option will allow you to code decimals as integers. Minimal implementation in Java will use BigDecimal. In JS will just expose the decimal places as a constant, but ideally the ability will be added to instantiate a type from a library.
 
-##Architecture
-Generation is done by feeding a .proto file into a Java parser. This was developed using Antlr 4. The .g4 file for parsing .proto files was adapted from an Antlr 3 grammar provided in another OS project, which will be credited as soon as I find a link. This approach should allow addition of other languages. I'd like to produce a smaller footprint Java library with Java 8 
-support for example
+## Architecture
+Generation is done by feeding a .proto file into a Java parser. This was developed using Antlr 4. The .g4 file for parsing .proto files was adapted from an Antlr 3 grammar provided in another OS project, which will be credited as soon as I find a link. This approach should allow addition of other languages. I'd like to produce a smaller footprint Java library with Java 8 support for example
 
-##Build
+## Build
 * Obtain the source
 * bulid using ```mvn package```	
 
-##To do:
+## To do:
 * Support a 64-bit library for very large numbers
 * Support Fixed-width numbers
 * Add decimal support
