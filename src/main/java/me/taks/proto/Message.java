@@ -9,17 +9,17 @@ import java.util.stream.Stream;
 import me.taks.proto.Message.Field.Scope;
 
 public class Message extends Type {
+	enum BuiltIn {
+		INT32, SINT32, UINT32, INT64, SINT64, UINT64,
+		FIXED32, FIXED64, SFIXED32, SFIXED64,
+		DOUBLE, FLOAT,
+		BOOL, 
+		STRING,
+		BYTES,
+		COMPLEX,
+	}
 
 	public static class FieldType {
-		enum BuiltIn {
-			INT32, SINT32, UINT32, INT64, SINT64, UINT64,
-			FIXED32, FIXED64, SFIXED32, SFIXED64,
-			DOUBLE, FLOAT,
-			BOOL, 
-			STRING,
-			BYTES,
-			COMPLEX,
-		}
 		BuiltIn builtIn;
 		String complex;
 		Field field;
@@ -35,7 +35,7 @@ public class Message extends Type {
 
 		public Message message;
 		public String name;
-		public Field.Scope scope;
+		public Field.Scope scope = Scope.OPTIONAL;
 		public FieldType type;
 		public FieldType decodedType;
 		public int number;
@@ -58,7 +58,7 @@ public class Message extends Type {
 	
 	public Stream<Field> complex() {
 		return items.stream()
-			.filter(i->i.type.builtIn==FieldType.BuiltIn.COMPLEX);
+			.filter(i->i.type.builtIn==BuiltIn.COMPLEX);
 	}
 	
 	public Stream<Type> messages() {

@@ -1,12 +1,15 @@
 package me.taks.proto;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.util.stream.Collectors;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class OutputRendererTest extends TestCase {
+class OutputTest {
 
-	public void testOutput() {
+	@Test
+	void test() {
 		Output out = new Output();
 		out.lineEnd = "*";
 		out.startBrace = "[";

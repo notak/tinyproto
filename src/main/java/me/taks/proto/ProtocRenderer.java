@@ -20,7 +20,7 @@ public class ProtocRenderer extends Renderer {
 			))
 		).lines(
 			m.items.stream().map(i->
-				(i.scope==Scope.PACKED ? "repeated" : i.scope.toString().toLowerCase())
+				renderScope(m.pkg.syntax, i.scope)
 				+ " " +
 				(i.type.complex!=null ? i.type.complex : i.type.builtIn.toString().toLowerCase()) 
 				+ " " + i.name + " = "
@@ -35,8 +35,14 @@ public class ProtocRenderer extends Renderer {
 		return Stream.of(out);
 	}
 	
+	private String renderScope(String syntax, Scope scope) {
+		if (syntax.length()>0 && scope==Scope.OPTIONAL) return "";
+		return scope==Scope.PACKED ? "repeated" : scope.toString().toLowerCase();
+	}
+	
 	public Stream<Output> render(Package p) {
 		Output out = new Output().head("package "+p.name);
+		if (p.syntax.length()>0) out.head("syntax=" + p.syntax);
 		out.emptyBody = ";";
 		return Stream.of(
 			Stream.of(out),

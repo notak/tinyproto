@@ -13,6 +13,7 @@ WHITESPACE : ('\t' | ' ' | '\r' | '\n' | '\u000C')+ -> skip;
 PACKAGE_LITERAL : 'package' ;
 IMPORT_LITERAL : 'import' ;
 OPTION_LITERAL : 'option' ;
+SYNTAX_LITERAL : 'syntax' ;
 
 ENUM_LITERAL : 'enum' ;
 MESSAGE_LITERAL : 'message' ;
@@ -168,7 +169,9 @@ proto_type
 
 // Proto ------------------------------
 proto
-  :  (package_def | import_def | option_line_def | enum_def | ext_def | message_def | service_def)* EOF  // Only one package define is allowed - will handle that in the compiler
+  :  (package_def | import_def | option_line_def | syntax_line_def | enum_def
+  	 | ext_def | message_def | service_def)* EOF  
+  	 // Only one package define is allowed - will handle that in the compiler
   ;
 // Proto ------------------------------
 
@@ -187,6 +190,10 @@ import_def
 
 import_file_name : STRING_LITERAL ;
 // Import -----------------------------
+
+syntax_line_def
+  :  SYNTAX_LITERAL EQUALS STRING_LITERAL ITEM_TERMINATOR
+  ;
 
 // Option in line----------------------
 option_line_def
@@ -244,7 +251,7 @@ message_name : IDENTIFIER ;
 message_content : (option_line_def | message_item_def | message_def | enum_def | message_ext_def)+ ;
 
 message_item_def
-  : PROTOBUF_SCOPE_LITERAL proto_type IDENTIFIER EQUALS INTEGER_LITERAL option_field_def? ITEM_TERMINATOR
+  : PROTOBUF_SCOPE_LITERAL? proto_type IDENTIFIER EQUALS INTEGER_LITERAL option_field_def? ITEM_TERMINATOR
   ;
 
 message_ext_def

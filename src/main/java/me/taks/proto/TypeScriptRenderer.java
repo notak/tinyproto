@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 
 import me.taks.proto.Message.Field;
 import me.taks.proto.Message.FieldType;
-import me.taks.proto.Message.FieldType.BuiltIn;
+import me.taks.proto.Message.BuiltIn;
 import me.taks.proto.Message.Field.Scope;
 
 public class TypeScriptRenderer extends Renderer {

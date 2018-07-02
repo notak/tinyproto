@@ -1,25 +1,27 @@
 package me.taks.proto;
 
 import java.io.IOException;
+import java.io.StreamTokenizer;
+import java.io.StringReader;
 import java.util.HashMap;
 
-import org.antlr.v4.runtime.ANTLRFileStream;
-import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import org.apache.commons.lang3.StringEscapeUtils;
 
 import me.taks.proto.Message.Field;
 import me.taks.proto.Message.FieldType;
 import me.taks.proto.Message.Field.Scope;
-import me.taks.proto.Message.FieldType.BuiltIn;
+import me.taks.proto.Message.BuiltIn;
 import me.taks.proto.ProtobufParser.*;
+import me.taks.proto.Type.ProtoEnum;
 
 public class ModelBuilder extends ProtobufBaseListener {
 	private Package pkg;
 	private Message message;
 	private Field item;
-	private Message.Enum currentEnum;
+	private Message.ProtoEnum currentEnum;
 
 	protected FieldType getType(Field field, String type) {
 		FieldType out = new FieldType(field);
@@ -35,7 +37,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 	protected Field getItem(String scope, String type, String name, String id) {
 		Field i = new Field();
 		i.message = message;
-		i.scope = Scope.valueOf(scope.toUpperCase());
+		i.scope = scope==null ? Scope.OPTIONAL : Scope.valueOf(scope.toUpperCase());
 		i.name = name;
 		i.number = Integer.parseInt(id);
 		i.type = getType(i, type);
@@ -46,22 +48,39 @@ public class ModelBuilder extends ProtobufBaseListener {
 	public void enterImport_file_name(Import_file_nameContext ctx) {
 		pkg.imports.add(ctx.getText());
 	}
+
+	private String childText(ParserRuleContext ctx, int pos) {
+		return ctx.getChild(pos).getText();
+	}
 	
 	@Override
 	public void enterMessage_item_def(Message_item_defContext ctx) {
 		message.items.add(item = getItem(
-			ctx.getChild(0).getText(), ctx.getChild(1).getText(), 
-			ctx.getChild(2).getText(), ctx.getChild(4).getText()
+			ctx.PROTOBUF_SCOPE_LITERAL()==null ? null : ctx.PROTOBUF_SCOPE_LITERAL().getText(),
+			ctx.proto_type().getText(),
+			ctx.IDENTIFIER().getText(),
+			ctx.INTEGER_LITERAL().getText()
 		));
+	}
+	
+	//TODO: bit of a hack but who wants a commons dependency
+	private String unescape(String in) {
+		StreamTokenizer parser = new StreamTokenizer(new StringReader(in));
+		try {
+		  parser.nextToken();
+		  if (parser.ttype == '"') return parser.sval;
+		  else throw new Error("ERROR!");
+		}
+		catch (IOException e) {
+		  throw new Error(e);
+		}		
 	}
 	
 	@Override
 	public void enterOption_line_def(Option_line_defContext ctx) {
-		String name = ctx.getChild(1).getText();
-		String value = ctx.getChild(3).getText();
-		//TODO: bit of a hack
-		if (value.startsWith("\"")) value = 
-				StringEscapeUtils.unescapeJava(value.substring(1, value.length()-1));
+		String name = childText(ctx, 1);
+		String value = childText(ctx, 3);
+		if (value.startsWith("\"")) value = unescape(value);
 
 		if (currentEnum!=null) { //enum options
 			switch (name.toUpperCase()) {
@@ -82,9 +101,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 					(Option_field_itemContext)ctx.getChild(i).getPayload();
 			String name = rule.getChild(0).getText();
 			String value = rule.getChild(2).getText();
-			//TODO: bit of a hack
-			if (value.startsWith("\"")) value = 
-					StringEscapeUtils.unescapeJava(value.substring(1, value.length()-1));
+			if (value.startsWith("\"")) value = unescape(value);
 
 			switch (name.toUpperCase()) {
 			case "PACKED": item.scope = Scope.PACKED; break;
@@ -113,8 +130,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 		if (message==null) {
 			throw new Error(String.format("enum %s has no enclosing message", name));
 		}
-		Message.Enum e = new Message.Enum(pkg, message, name);
-		currentEnum = e;
+		ProtoEnum e = currentEnum = new ProtoEnum(pkg, message, name);
 		message.types.put(e.name, e);
 	}
 
@@ -127,7 +143,7 @@ public class ModelBuilder extends ProtobufBaseListener {
 	@Override
 	public void enterEnum_item_def(Enum_item_defContext ctx) {
 		currentEnum.items.put(
-			ctx.getChild(0).getText(), Integer.parseInt(ctx.getChild(2).getText())
+				childText(ctx, 0), Integer.parseInt(childText(ctx, 2))
 		);
 	}
 
@@ -144,15 +160,20 @@ public class ModelBuilder extends ProtobufBaseListener {
 		pkg = new Package(ctx.getText());
 	}
 	
+	@Override
+	public void enterSyntax_line_def(Syntax_line_defContext ctx) {
+		pkg.syntax = childText(ctx, 2);
+	}
+	
 	public ModelBuilder buildFile(String file) throws IOException {
-		ProtobufLexer lexer = new ProtobufLexer(new ANTLRFileStream(file));
+		ProtobufLexer lexer = new ProtobufLexer(CharStreams.fromFileName(file));
 		new ParseTreeWalker()
 			.walk(this, new ProtobufParser(new CommonTokenStream(lexer)).proto());
 		return this;
 	}
 	
 	public ModelBuilder build(String proto) throws IOException {
-		ProtobufLexer lexer = new ProtobufLexer(new ANTLRInputStream(proto));
+		ProtobufLexer lexer = new ProtobufLexer(CharStreams.fromString(proto));
 		new ParseTreeWalker()
 			.walk(this, new ProtobufParser(new CommonTokenStream(lexer)).proto());
 		return this;

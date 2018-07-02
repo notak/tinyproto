@@ -39,16 +39,16 @@ public class Type {
 			.map(i->(Message)i);
 	}
 	
-	public Stream<Enum> childEnums() {
+	public Stream<ProtoEnum> childEnums() {
 		return types.values().stream()
-			.filter(i->i instanceof Enum)
-			.map(i->(Enum)i);
+			.filter(i->i instanceof ProtoEnum)
+			.map(i->(ProtoEnum)i);
 	}
 	
 	public boolean isEnum() { return false; }
 
-	public static class Enum extends Type {
-		public Enum(Package pkg, Message parent, String name) {
+	public static class ProtoEnum extends Type {
+		public ProtoEnum(Package pkg, Message parent, String name) {
 			super(pkg, parent, name);
 			// TODO Auto-generated constructor stub
 		}
