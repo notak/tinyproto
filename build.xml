@@ -1,0 +1,45 @@
+<project>
+	<target name="clean">
+        <delete dir="target"/>
+    </target>
+	
+    <target name="deps-loaded">
+        <available 
+        	file="libs/antlr-runtime-4.7.1.jar" 
+        	property="deps-are-loaded"
+        />
+    </target>
+	<target name="deps" depends="deps-loaded" unless="deps-are-loaded">
+		<mkdir dir="libs"/>
+		<get src="http://www.antlr.org/download/antlr-runtime-4.7.1.jar"
+			dest="libs/"/>
+	</target>
+	
+	<target name="antlr">
+		<exec executable="antlr4">
+			<arg value="-o"/>
+			<arg value="target/"/>
+			<arg value="-package"/>
+			<arg value="me.taks.proto"/>
+			<arg value="src/main/antlr4/me/taks/proto/Protobuf.g4"/>
+		</exec>
+	</target>
+
+    <target name="compile" depends="deps,antlr">
+        <mkdir dir="target/classes"/>
+        <javac destdir="target/classes" classpath="libs/antlr-runtime-4.7.1.jar"
+        	includeAntRuntime="false">
+			<src path="src/main/java"/>
+        	<src path="target/src/main/antlr4"/>
+    	</javac>
+    </target>
+
+	<target name="jar" depends="compile">
+        <jar destfile="target/libs/tinyproto.jar" basedir="target/classes">
+        	<manifest>
+        	  <attribute name="Main-Class"
+        	     value="me.taks.proto.ModelBuilder" />
+        	</manifest>
+        </jar>
+    </target>
+</project>
