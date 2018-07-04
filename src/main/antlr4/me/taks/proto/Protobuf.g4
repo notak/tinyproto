@@ -168,44 +168,59 @@ proto_type
   ;
 
 // Proto ------------------------------
-proto
-  :  (package_def | import_def | option_line_def | syntax_line_def | enum_def
-  	 | ext_def | message_def | service_def)* EOF  
+proto: (
+	pkg=package_def | 
+	imports+=import_def | 
+	options+=option_line | 
+	syntax=syntax_line | 
+	enums+=enum_def | 
+	exts+=ext_def | 
+	messages+=message | 
+	services+=service_def
+)* EOF  
   	 // Only one package define is allowed - will handle that in the compiler
   ;
-// Proto ------------------------------
 
-// Package ----------------------------
-package_def
-  :  PACKAGE_LITERAL package_name ITEM_TERMINATOR
+package_def:  
+	PACKAGE_LITERAL 
+	name=all_identifier
+	ITEM_TERMINATOR
   ;
 
-package_name : all_identifier ;
-// Package ----------------------------
-
-// Import -----------------------------
-import_def
-  :  IMPORT_LITERAL import_file_name ITEM_TERMINATOR
+import_def:  
+	IMPORT_LITERAL 
+	file=STRING_LITERAL
+	ITEM_TERMINATOR
   ;
 
-import_file_name : STRING_LITERAL ;
-// Import -----------------------------
-
-syntax_line_def
-  :  SYNTAX_LITERAL EQUALS STRING_LITERAL ITEM_TERMINATOR
+syntax_line: 
+	SYNTAX_LITERAL
+	EQUALS
+	version=STRING_LITERAL
+	ITEM_TERMINATOR
   ;
 
-// Option in line----------------------
-option_line_def
-  :  OPTION_LITERAL option_name EQUALS option_all_value ITEM_TERMINATOR
+option_line:
+	OPTION_LITERAL 
+	name=option_name 
+	EQUALS 
+	value=option_all_value 
+	ITEM_TERMINATOR
   ;
 
-option_field_def
-  :  BRACKET_OPEN option_field_item (COMMA option_field_item)* BRACKET_CLOSE
+option_field:  
+	BRACKET_OPEN 
+	item+=option_field_item 
+	(COMMA 
+		item+=option_field_item
+	)* 
+	BRACKET_CLOSE
   ;
 
-option_field_item
-  :  option_name EQUALS option_all_value
+option_field_item: 
+	name=option_name 
+	EQUALS 
+	value=option_all_value
   ;
 
 option_all_value
@@ -228,61 +243,97 @@ option_name
 // Option in line----------------------
 
 // Enum -------------------------------
-enum_def
-  :  ENUM_LITERAL enum_name BLOCK_OPEN enum_content BLOCK_CLOSE
+enum_def:  
+	ENUM_LITERAL 
+	name=IDENTIFIER
+	BLOCK_OPEN 
+	(
+		options+=option_line | 
+		items+=enum_item
+	)*
+	BLOCK_CLOSE
   ;
 
-enum_name : IDENTIFIER ;
-
-enum_content : (option_line_def | enum_item_def)* ;
-
-enum_item_def
-  :  IDENTIFIER EQUALS INTEGER_LITERAL option_field_def? ITEM_TERMINATOR
+enum_item: 
+	name=IDENTIFIER 
+	EQUALS 
+	value=INTEGER_LITERAL 
+	options=option_field? 
+	ITEM_TERMINATOR
   ;
 // Enum -------------------------------
 
 // Message ----------------------------
-message_def
-  :  MESSAGE_LITERAL message_name BLOCK_OPEN message_content? BLOCK_CLOSE
+message:  
+	MESSAGE_LITERAL 
+	name=message_name 
+	BLOCK_OPEN 
+	(
+		options+=option_line | 
+		items+=message_item | 
+		messages+=message | 
+		enums+=enum_def | 
+		ext=message_ext_def
+	)+
+	BLOCK_CLOSE
   ;
 
 message_name : IDENTIFIER ;
 
-message_content : (option_line_def | message_item_def | message_def | enum_def | message_ext_def)+ ;
-
-message_item_def
-  : PROTOBUF_SCOPE_LITERAL? proto_type IDENTIFIER EQUALS INTEGER_LITERAL option_field_def? ITEM_TERMINATOR
+message_item: 
+	scope=PROTOBUF_SCOPE_LITERAL? 
+	type=proto_type 
+	name=IDENTIFIER 
+	EQUALS 
+	id=INTEGER_LITERAL 
+	opts=option_field? 
+	ITEM_TERMINATOR
   ;
 
-message_ext_def
-  : EXTENSIONS_DEF_LITERAL INTEGER_LITERAL EXTENSIONS_TO_LITERAL (v=INTEGER_LITERAL | v=EXTENSIONS_MAX_LITERAL) ITEM_TERMINATOR
-  ;
-// Message ----------------------------
-
-// Extension --------------------------
-ext_def
-  :  EXTEND_LITERAL ext_name BLOCK_OPEN ext_content? BLOCK_CLOSE
+message_ext_def: 
+	EXTENSIONS_DEF_LITERAL 
+	INTEGER_LITERAL 
+	EXTENSIONS_TO_LITERAL 
+	(v=INTEGER_LITERAL | v=EXTENSIONS_MAX_LITERAL) 
+	ITEM_TERMINATOR
   ;
 
-ext_name : all_identifier ;
-
-ext_content : (option_line_def | message_item_def | message_def | enum_def)+ ;
-// Extension --------------------------
-
-// Service ----------------------------
-service_def
-  :  SERVICE_LITERAL service_name BLOCK_OPEN service_content? BLOCK_CLOSE
+ext_def:  
+	EXTEND_LITERAL 
+	name=all_identifier 
+	BLOCK_OPEN 
+	ext_content? 
+	BLOCK_CLOSE
   ;
 
-service_name : IDENTIFIER ;
+ext_content : (option_line | message_item | message | enum_def)+ ;
 
-service_content : (option_line_def | rpc_def )+ ;
+service_def:  
+	SERVICE_LITERAL 
+	name=IDENTIFIER
+	BLOCK_OPEN 
+	(
+		options+=option_line | 
+		rpcs+=rpc_def 
+	)+
+	BLOCK_CLOSE
+  ;
 
-rpc_def
-  :  RPC_LITERAL rpc_name PAREN_OPEN req_name PAREN_CLOSE RETURNS_LITERAL PAREN_OPEN resp_name PAREN_CLOSE (BLOCK_OPEN option_line_def* BLOCK_CLOSE ITEM_TERMINATOR? | ITEM_TERMINATOR)
+rpc_def:  
+	RPC_LITERAL 
+	name=IDENTIFIER
+	PAREN_OPEN 
+	req=all_identifier 
+	PAREN_CLOSE 
+	RETURNS_LITERAL 
+	PAREN_OPEN 
+	resp=all_identifier 
+	PAREN_CLOSE 
+	(
+		BLOCK_OPEN 
+		options+=option_line* 
+		BLOCK_CLOSE 
+		ITEM_TERMINATOR? 
+		| ITEM_TERMINATOR
+	)
     ;
-
-rpc_name : IDENTIFIER ;
-req_name : all_identifier ;
-resp_name : all_identifier ;
-// Service ----------------------------

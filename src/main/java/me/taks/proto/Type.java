@@ -1,21 +1,24 @@
 package me.taks.proto;
 
+import static java.util.Arrays.stream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import me.taks.proto.ProtoEnum.Option;
+
 public class Type {
-	public final Package pkg;
-	public final Message parent;
+	public final Type parent;
 	
 	public final String name;
 	public final Map<String, Type> types = new LinkedHashMap<>();
-	public final Map<String, String> unknownOpts = new LinkedHashMap<>();
+	public final ProtoEnum[] enums;
+	public Option[] unknownOpts;
 
-	public Type(Package pkg, Message parent, String name) {
-		this.pkg = pkg;
+	public Type(Type parent, String name, ProtoEnum[] enums) {
 		this.parent = parent;
 		this.name = name;
+		this.enums = enums;
 	}
 
 	public Type resolveType(String typeName) {
@@ -24,13 +27,8 @@ public class Type {
 			out = out.types.get(type);
 			if (out==null) break;
 		}
-		if (out!=null) return out;
-		out = pkg;
-		for (String type: typeName.split("\\.")) {
-			out = out.types.get(type);
-			if (out==null) break;
-		}
-		return out;
+		if (parent!=null) return parent.resolveType(typeName);
+		return null;
 	}
 
 	public Stream<Message> childMessages() {
@@ -40,21 +38,8 @@ public class Type {
 	}
 	
 	public Stream<ProtoEnum> childEnums() {
-		return types.values().stream()
-			.filter(i->i instanceof ProtoEnum)
-			.map(i->(ProtoEnum)i);
+		return stream(enums);
 	}
 	
 	public boolean isEnum() { return false; }
-
-	public static class ProtoEnum extends Type {
-		public ProtoEnum(Package pkg, Message parent, String name) {
-			super(pkg, parent, name);
-			// TODO Auto-generated constructor stub
-		}
-		public final Map<String, Integer> items = new LinkedHashMap<>();
-		public final Map<String, String> unknownOpts = new LinkedHashMap<>();
-		public boolean allowAlias;
-		public boolean isEnum() { return true; }
-	}
 }

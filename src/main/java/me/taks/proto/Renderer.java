@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import me.taks.proto.Field.Scope;
+
 abstract public class Renderer {
 	protected String out;
 
@@ -40,20 +42,32 @@ abstract public class Renderer {
 		return this;
 	}
 	
+	public String renderScope(String syntax, Scope scope) {
+		return scope==Scope.PACKED ? "repeated "
+				: scope==Scope.NONE ? ""
+				: scope.toString().toLowerCase() + " ";
+	}
+	
 	public Stream<Output> renderContent(Package p) {
 		return Stream.of(
 			p.childMessages().filter(s->includes("classes", s.name))
-			.map(this::renderClass).flatMap(x->x),
+			.map(m->renderClass(p, m)).flatMap(x->x),
 			p.childMessages().filter(s->includes("builders", s.name))
-			.map(this::renderBuilder).flatMap(x->x),
+			.map(m->renderBuilder(p, m)).flatMap(x->x),
 			p.childMessages().filter(s->includes("parsers", s.name))
-			.map(this::renderParser).flatMap(x->x)
+			.map(m->renderParser(p, m)).flatMap(x->x)
 		).flatMap(x->x);
 	}
 	
-	Stream<Output> renderClass(Message m) { return Stream.empty(); }
-	Stream<Output> renderBuilder(Message m) { return Stream.empty(); }
-	Stream<Output> renderParser(Message m) { return Stream.empty(); }
+	Stream<Output> renderClass(Package p, Message m) { 
+		return Stream.empty(); 
+	}
+	Stream<Output> renderBuilder(Package p, Message m) { 
+		return Stream.empty(); 
+	}
+	Stream<Output> renderParser(Package p, Message m) { 
+		return Stream.empty(); 
+	}
 
 	abstract Stream<Output> render(Package pkg);
 

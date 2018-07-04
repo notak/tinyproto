@@ -9,10 +9,9 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import me.taks.proto.Message.Field;
 import me.taks.proto.Message.FieldType;
 import me.taks.proto.Message.BuiltIn;
-import me.taks.proto.Message.Field.Scope;
+import me.taks.proto.Field.Scope;
 
 public class JavaRenderer extends Renderer {
 	private String imports = "";
@@ -46,14 +45,15 @@ public class JavaRenderer extends Renderer {
 		}
 	}
 	
-	public Stream<Output> renderClass(Message m) {
+	@Override
+	public Stream<Output> renderClass(Package p, Message m) {
 		Output out = new Output()
 		.head("public class " + m.name)
 		.lines(m.childEnums().map(e->
 			"public static class " + e.name + " {" +
-			e.items.entrySet().stream().map(i->
-				"public static final int " + i.getKey() 
-					+ ": " + i.getValue() + ","
+			Arrays.stream(e.items).map(i->
+				"public static final int " + i.name 
+					+ ": " + i.value + ","
 			).collect(Collectors.joining(" ")) +
 			"}"
 		))
@@ -64,12 +64,12 @@ public class JavaRenderer extends Renderer {
 		));
 
 		return Stream.concat(
-			m.childMessages().flatMap(this::renderClass),
+			m.childMessages().flatMap(cm->renderClass(p, cm)),
 			Stream.of(out)
 		);
 	}
 	
-	private String renderLine (Field f) {
+	private String renderLine (Message m, Field f) {
 		String fn = ""; 
 		String value = "r." + f.name;
 		switch(f.type.builtIn) {
@@ -88,7 +88,7 @@ public class JavaRenderer extends Renderer {
 		case SINT64:
 			fn = "varLong"; value += ", true"; break;
 		case COMPLEX:
-			Type t = f.message.resolveType(f.type.complex);
+			Type t = m.resolveType(f.type.complex);
 			if (t instanceof Message) {
 				fn = "Builder";
 				value = String.format(
@@ -103,24 +103,25 @@ public class JavaRenderer extends Renderer {
 		return ".set" + fn + "(" + f.number + ", " + value + ")";
 	}
 	
-	public Stream<Output> renderBuilder(Message m) {
+	@Override
+	public Stream<Output> renderBuilder(Package p, Message m) {
 		Output out = new Output()
 			.head("export class " + m.name + "Builder extends proto.Builder");
 		Output body = new Output()
 			.head("build(r: " + m.name + ")")
 			.line("return this")
-			.lines(m.items.stream().map(this::renderLine))
+			.lines(m.items.stream().map(f->renderLine(m, f)))
 			.line(";");
 		body.lineEnd = "";
 		out.child(body);
 
 		return Stream.concat(
-			m.childMessages().flatMap(this::renderClass),
+			m.childMessages().flatMap(cm->renderBuilder(p, cm)),
 			Stream.of(out)
 		);
 	}
 
-	private String unprocessedDecoder(Field i) {
+	private String unprocessedDecoder(Message m, Field i) {
 		if (i.scope==Scope.PACKED) { 
 			return "this.getPacked(lenOrVal, i=>this.getVarInt("+
 			(i.type.builtIn==BuiltIn.SINT32 || i.type.builtIn == BuiltIn.SINT64 ? "true" : "")
@@ -130,7 +131,7 @@ public class JavaRenderer extends Renderer {
 			case STRING: return "this.getString(lenOrVal)";
 			case BOOL: return "!!lenOrVal";
 			case COMPLEX:
-				Type t = i.message.resolveType(i.type.complex);
+				Type t = m.resolveType(i.type.complex);
 				if (t instanceof Message) {
 					return "this."+lcFirst(t.name)+"Parser.decode("
 					+ "this.buf, this.start, this.start + lenOrVal)";
@@ -147,8 +148,8 @@ public class JavaRenderer extends Renderer {
 		}
 	}
 	
-	private String decoder(Field i) {
-		String out = unprocessedDecoder(i);
+	private String decoder(Message m, Field i) {
+		String out = unprocessedDecoder(m, i);
 		
 		if (i.encoding!=null) out = i.encoding + ".decode(" + out + ")";
 		if (i.subtract!=0) out += "+"+i.subtract;
@@ -165,7 +166,8 @@ public class JavaRenderer extends Renderer {
 	private static final String SUBPARSER_INST = "this.%sParser=this.getParser(%sParser)";
 	private static final String MAP_FIELD = "case %d: this._out.%s%s; break";
 	
-	public Stream<Output> renderParser(Message m) {
+	@Override
+	public Stream<Output> renderParser(Package p, Message m) {
 		Output out = new Output();
 		out.head = String.format(PARSER_HEAD, m.name, m.name);
 
@@ -200,14 +202,14 @@ public class JavaRenderer extends Renderer {
 			.child(new Output().head("switch (field)").lines(
 				m.items.stream()
 				.map(i->String.format(MAP_FIELD, i.number, i.name,
-					i.scope==Scope.REPEATED ? ".add(" + decoder(i) + ")" :
-					" = " + decoder(i)
+					i.scope==Scope.REPEATED ? ".add(" + decoder(m, i) + ")" :
+					" = " + decoder(m, i)
 				))
 			))
 		);
 		
 		return Stream.concat(
-			m.childMessages().flatMap(this::renderParser),
+			m.childMessages().flatMap(cm->renderParser(p, cm)),
 			Stream.of(out)
 		);
 	}

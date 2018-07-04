@@ -1,43 +1,39 @@
 package me.taks.proto;
 
 import java.util.stream.Stream;
-
-import me.taks.proto.Message.Field.Scope;
+import static java.util.Arrays.stream;
+import me.taks.proto.Field.Scope;
 
 public class ProtocRenderer extends Renderer {
-	@Override
-	public Stream<Output> renderClass(Message m) {
-		Output out = new Output().head("message " + m.name)
-		.children(m.childEnums().map(e->
-			new Output().head("enum " + e.name)
-				.line(e.allowAlias ? "option allow_alias = true" : null)
-				.lines(e.unknownOpts.entrySet().stream().map(i->
-					"option " + i.getKey() + " = \"" + i.getValue() + "\""
-				))
-				.lines(e.items.entrySet().stream().map(i->
-					i.getKey() + " = " + i.getValue()
-				)
-			))
-		).lines(
-			m.items.stream().map(i->
-				renderScope(m.pkg.syntax, i.scope)
-				+ " " +
-				(i.type.complex!=null ? i.type.complex : i.type.builtIn.toString().toLowerCase()) 
-				+ " " + i.name + " = "
-				+ i.number + (i.scope==Scope.PACKED ? " [packed=true]" : "")
-			)
-		).lines(m.unknownOpts.entrySet().stream().map(i->
-			"option " + i.getKey() + " = " + i.getValue()
-		));
-		
-		out.children(m.childMessages().flatMap(this::renderClass));
-
-		return Stream.of(out);
+	
+	private Output renderEnum(ProtoEnum e) {
+		return new Output().head("enum " + e.name)
+		.line(e.allowAlias ? "option allow_alias = true" : null)
+		.lines(stream(e.unknownOpts).map(i->
+			"option " + i.name + " = \"" + i.value + "\""
+		))
+		.lines(stream(e.items).map(i->i.name + " = " + i.value));
 	}
 	
-	private String renderScope(String syntax, Scope scope) {
-		if (syntax.length()>0 && scope==Scope.OPTIONAL) return "";
-		return scope==Scope.PACKED ? "repeated" : scope.toString().toLowerCase();
+	private String renderItem(Package pkg, Field i) {
+		return renderScope(pkg.syntax, i.scope)
+		+ (i.type.complex!=null ? i.type.complex : i.type.builtIn.toString().toLowerCase()) 
+		+ " " + i.name + " = "
+		+ i.number + (i.scope==Scope.PACKED ? " [packed=true]" : "");
+	}
+
+	@Override
+	public Stream<Output> renderClass(Package pkg, Message m) {
+		Output out = new Output().head("message " + m.name);
+		out.children(m.childEnums().map(this::renderEnum));
+		out.lines(m.items.stream().map(i->renderItem(pkg, i)));
+		out.lines(
+			stream(m.unknownOpts).map(i->"option " + i.name + " = " + i.value)
+		);
+		
+		out.children(m.childMessages().flatMap(cm->renderClass(pkg, cm)));
+
+		return Stream.of(out);
 	}
 	
 	public Stream<Output> render(Package p) {
@@ -46,10 +42,10 @@ public class ProtocRenderer extends Renderer {
 		out.emptyBody = ";";
 		return Stream.of(
 			Stream.of(out),
-			p.imports.stream().map(n->"import " + n)
+			stream(p.imports).map(n->"import " + n)
 				.map(new Output().emptyBody(";")::head),
-			p.unknownOpts.entrySet().stream().map(i->
-				"option " + i.getKey() + " = \"" + i.getValue() + "\""
+			stream(p.unknownOpts).map(i->
+				"option " + i.name + " = \"" + i.value + "\""
 			).map(new Output().emptyBody(";")::head),
 			renderContent(p)
 		).flatMap(i->i);

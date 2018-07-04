@@ -1,12 +1,9 @@
 package me.taks.proto;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
-
-import me.taks.proto.Message.Field.Scope;
+import me.taks.proto.Field.Scope;
 
 public class Message extends Type {
 	enum BuiltIn {
@@ -22,36 +19,15 @@ public class Message extends Type {
 	public static class FieldType {
 		BuiltIn builtIn;
 		String complex;
-		Field field;
+		Message m;
 		Type complex() {
-			return this.field.message.resolveType(complex);
+			return this.m.resolveType(complex);
 		}
-		public FieldType(Field field) { this.field = field; }
+		public FieldType(Message m) { this.m = m; }
 	}
 
-	public static class Field {
-		
-		enum Scope { REQUIRED, OPTIONAL, REPEATED, PACKED }
-
-		public Message message;
-		public String name;
-		public Field.Scope scope = Scope.OPTIONAL;
-		public FieldType type;
-		public FieldType decodedType;
-		public int number;
-		public String defaultVal;
-		public String encoding;
-		public int divisor;
-		public int subtract;
-		public Map<String, String> unknownOpts = new LinkedHashMap<>();
-
-		public FieldType decodedType() {
-			return decodedType==null ? type : decodedType;
-		}
-	}
-	
-	public Message(Package pkg, Message parent, String name) {
-		super(pkg, parent, name);
+	public Message(Type parent, String name, ProtoEnum[] enums) {
+		super(parent, name, enums);
 	}
 	
 	public List<Field> items = new ArrayList<>();
