@@ -22,17 +22,24 @@ public class ProtoEnum {
 		}
 	}
 
+	public final Message parent;
 	public final String name;
 	public final boolean allowAlias;
 	public final Item[] items;
 	public final Option[] unknownOpts;
 
 	public ProtoEnum(
-		String name, boolean allowAlias, Item[] items, Option[] unknownOpts
+		Message parent, String name, boolean allowAlias, 
+		Item[] items, Option[] unknownOpts
 	) {
+		this.parent = parent;
 		this.name = name;
 		this.allowAlias = allowAlias;
 		this.items = items;
 		this.unknownOpts = unknownOpts;
+	}
+
+	public String fullName() {
+		return parent.fullName() + "." + name;
 	}
 }

@@ -15,23 +15,30 @@ public class ProtocRenderer extends Renderer {
 		.lines(stream(e.items).map(i->i.name + " = " + i.value));
 	}
 	
+	private String renderType(FieldType type) {
+		switch(type.builtIn) {
+		case MESSAGE: return type.message.fullName();
+		case ENUM: return type.protoEnum.fullName();
+		default: return type.builtIn.name().toLowerCase();
+		}
+	}
+	
 	private String renderItem(Package pkg, Field i) {
 		return renderScope(pkg.syntax, i.scope)
-		+ (i.type.complex!=null ? i.type.complex : i.type.builtIn.toString().toLowerCase()) 
-		+ " " + i.name + " = "
+		+ renderType(i.type) + " " + i.name + " = "
 		+ i.number + (i.scope==Scope.PACKED ? " [packed=true]" : "");
 	}
 
 	@Override
 	public Stream<Output> renderClass(Package pkg, Message m) {
 		Output out = new Output().head("message " + m.name);
-		out.children(m.childEnums().map(this::renderEnum));
-		out.lines(m.items.stream().map(i->renderItem(pkg, i)));
+		out.children(stream(m.enums).map(this::renderEnum));
+		out.lines(stream(m.items).map(i->renderItem(pkg, i)));
 		out.lines(
 			stream(m.unknownOpts).map(i->"option " + i.name + " = " + i.value)
 		);
 		
-		out.children(m.childMessages().flatMap(cm->renderClass(pkg, cm)));
+		out.children(stream(m.msgs).flatMap(cm->renderClass(pkg, cm)));
 
 		return Stream.of(out);
 	}

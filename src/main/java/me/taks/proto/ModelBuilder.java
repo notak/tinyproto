@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.StreamTokenizer;
 import java.io.StringReader;
 import java.util.HashMap;
+import java.util.Optional;
 
 import static java.lang.Integer.parseInt;
 import static java.util.Arrays.stream;
@@ -13,9 +14,11 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Token;
 
-import me.taks.proto.Message.FieldType;
-import me.taks.proto.Message.BuiltIn;
+import me.taks.proto.Field.Options;
+import me.taks.proto.Field.Scope;
+import me.taks.proto.FieldType.BuiltIn;
 import me.taks.proto.ProtobufParser.*;
+import me.taks.proto.ts.TypeScriptRenderer;
 import me.taks.proto.ProtoEnum;
 import me.taks.proto.ProtoEnum.Item;
 import me.taks.proto.ProtoEnum.Option;
@@ -23,15 +26,15 @@ import me.taks.proto.ProtoEnum.Option;
 import static me.taks.proto.Field.Scope.*;
 
 public class ModelBuilder {
-	protected FieldType getType(Message m, String type) {
-		FieldType out = new FieldType(m);
+	protected Optional<FieldType> getType(Message m, String type) {
 		try {
-			out.builtIn = BuiltIn.valueOf(type.toUpperCase());
+			return Optional.of(
+				new FieldType(BuiltIn.valueOf(type.toUpperCase())));
 		} catch (Exception e) {
-			out.builtIn = BuiltIn.COMPLEX;
-			out.complex = type;
+			return m.resolveEnum(type)
+			.map(FieldType::new)
+			.or(()->m.resolveMessage(type).map(FieldType::new));
 		}
-		return out;
 	}
 	
 	public Package enterProto(ProtoContext proto) {
@@ -40,46 +43,48 @@ public class ModelBuilder {
 		}
 		Package p = new Package(
 			proto.pkg.name.getText(),
-			proto.enums.stream().map(e->protoEnum(e)).toArray(ProtoEnum[]::new),
 			proto.imports.stream().map(i->i.file.getText()).toArray(String[]::new)
 		);
-		proto.messages.forEach(m->message(p, p, m));
+		for (var e: proto.enums) p = p.withEnum(protoEnum(p, e));
+		for (var m: proto.messages) p = p.withMessage(message(p, p, m));
 		p.unknownOpts = proto.options.stream().map(this::buildOption).toArray(Option[]::new);
 		if (proto.syntax!=null) p.syntax = proto.syntax.version.getText();
 		//TODO  proto.imports
 		return p;
 	}
 	
-	public void messageItem(Message m, Message_itemContext c) {
-		Field item = new Field(
-			c.scope==null ? NONE 
-			: valueOf(c.scope.getText().toUpperCase()),
-			getType(m, c.type.getText()), 
-			c.name.getText(), 
-			parseInt(c.id.getText()));
-		m.items.add(item);
-		
-		if (null!=c.opts) c.opts.item.forEach(rule->{
-			String name = rule.getChild(0).getText();
-			String value = rule.getChild(2).getText();
-			if (value.startsWith("\"")) value = unescape(value);
-
-			switch (name.toUpperCase()) {
-			case "PACKED": item.scope = PACKED; break;
-			case "ENCODING": item.encoding = value; break;
-			case "DECODEDTYPE": item.decodedType = getType(m, value); break;
-			case "DEFAULT": item.defaultVal = value; break;
-			case "DIVIDE": item.divisor = parseInt(value); break;
-			case "SUBTRACT": item.subtract = parseInt(value); break;
-			default: 
-				System.out.printf("didn't understand parameter %s parsing %s.%s", 
-					name, m.name, item.name
-				);
-				item.unknownOpts.put(name, value);
-			}
-		});
+	public static Scope scope(Token scope) {
+		return scope==null ? NONE : valueOf(scope.getText().toUpperCase());
 	}
 	
+	public Field messageItem(Message m, Message_itemContext c) {
+		String type = c.type.getText();
+		return getType(m, type)
+		.map(t->messageItem(m, t, c))
+		.orElseGet(()->{ throw new Error("Couldn't find type " + type); });
+	}
+	
+	public Field messageItem(Message m, FieldType t, Message_itemContext c) {
+		Field item = new Field(
+			scope(c.scope), t, c.name.getText(), asInt(c.id));
+		
+		if (null!=c.opts) for (var rule: c.opts.item) {
+			String name = rule.getChild(0).getText();
+			String value = rule.getChild(2).getText();
+			var val = 
+				value.startsWith("\"") ? new Literal(unescape(value))
+				: value.equalsIgnoreCase("true") ? Literal.TRUE
+				: value.equalsIgnoreCase("false") ? Literal.FALSE
+				: new Literal(parseInt(value));
+
+			var option = Options.fromString(name);
+			item = option!=null 
+				? item.withOption(option, val) 
+				: item.withOption(name, val);
+		}
+		return item;
+	}
+		
 	//TODO: bit of a hack but who wants a commons dependency
 	private String unescape(String in) {
 		StreamTokenizer parser = new StreamTokenizer(new StringReader(in));
@@ -107,7 +112,7 @@ public class ModelBuilder {
 		return c==null ? 0 : parseInt(c.getText());
 	}
 	
-	public ProtoEnum protoEnum(Enum_defContext ed) {
+	public ProtoEnum protoEnum(Message parent, Enum_defContext ed) {
 		String name = ed.name.getText();
 		Option[] opts = 
 			ed.options.stream().map(this::buildOption).toArray(Option[]::new);
@@ -116,6 +121,7 @@ public class ModelBuilder {
 			.toArray(Item[]::new);
 
 		return new ProtoEnum(
+			parent,
 			name, 
 			stream(opts).anyMatch(this::allowAlias),
 			items,
@@ -123,13 +129,13 @@ public class ModelBuilder {
 		);
 	}
 
-	public void message(Package p, Type owner, MessageContext ctx) {
-		Message m = new Message(owner, ctx.name.getText(),
-			ctx.enums.stream().map(this::protoEnum).toArray(ProtoEnum[]::new));
-		owner.types.put(m.name, m);
-		ctx.items.forEach(i->messageItem(m, i));
+	public Message message(Package p, Message owner, MessageContext ctx) {
+		Message m = new Message(owner, ctx.name.getText());
+		for(var i: ctx.items) messageItem(m, i);
 		m.unknownOpts = ctx.options.stream().map(this::buildOption).toArray(Option[]::new);
-		ctx.messages.forEach(cm->message(p, m, cm));
+		for (var cm: ctx.messages) m = m.withMessage(message(p, m, cm));
+		for (var i: ctx.enums) m = m.withEnum(protoEnum(m,i));
+		return m;
 	}
 
 	public Package buildFile(String file) throws IOException {

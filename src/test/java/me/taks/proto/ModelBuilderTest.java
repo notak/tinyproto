@@ -6,7 +6,6 @@ import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
-import static me.taks.proto.Message.BuiltIn.*;
 import static me.taks.proto.Field.Scope.*;
 
 class ModelBuilderTest {

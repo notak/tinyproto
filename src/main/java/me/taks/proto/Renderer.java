@@ -3,7 +3,8 @@ package me.taks.proto;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import static java.util.Arrays.stream;
+import static java.util.Arrays.asList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ abstract public class Renderer {
 		case "include":
 			Include i = includes.computeIfAbsent(parts[2], (k)->new Include());
 			i.exclude = exclude;
-			i.list = Arrays.asList(value.split(","));
+			i.list = asList(value.split(","));
 			break;
 		}
 		return this;
@@ -50,11 +51,11 @@ abstract public class Renderer {
 	
 	public Stream<Output> renderContent(Package p) {
 		return Stream.of(
-			p.childMessages().filter(s->includes("classes", s.name))
+			stream(p.msgs).filter(s->includes("classes", s.name))
 			.map(m->renderClass(p, m)).flatMap(x->x),
-			p.childMessages().filter(s->includes("builders", s.name))
+			stream(p.msgs).filter(s->includes("builders", s.name))
 			.map(m->renderBuilder(p, m)).flatMap(x->x),
-			p.childMessages().filter(s->includes("parsers", s.name))
+			stream(p.msgs).filter(s->includes("parsers", s.name))
 			.map(m->renderParser(p, m)).flatMap(x->x)
 		).flatMap(x->x);
 	}
@@ -69,7 +70,7 @@ abstract public class Renderer {
 		return Stream.empty(); 
 	}
 
-	abstract Stream<Output> render(Package pkg);
+	abstract public Stream<Output> render(Package pkg);
 
 	public void write(Package pkg) {
 		System.out.println("Writing file "+out);
